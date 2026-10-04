@@ -1,0 +1,1347 @@
+<title>Simulating the Matchmaker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one friendly reading column; each idea gets a short explanation followed by a toy you can poke. */
+:root {
+  --bg: #f5f7fa;
+  --card: #ffffff;
+  --ink: #1f2b37;
+  --muted: #5e6c7a;
+  --line: #dde4eb;
+  --grid: #e9eef3;
+  --a: #3f74d6;      /* scorer A / tickets */
+  --b: #df5a82;      /* scorer B */
+  --go: #22946a;     /* the parts that matter */
+  --sun: #f2b53c;    /* highlights */
+  --plumb: #a9b5c1;  /* infrastructure */
+  --font-display: "Nunito", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141a21; --card: #1c242d; --ink: #e8eef4; --muted: #9ba9b6; --line: #2d3844; --grid: #222c36;
+    --a: #82a8f2; --b: #f28eac; --go: #4fc996; --sun: #f5ca66; --plumb: #56636f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141a21; --card: #1c242d; --ink: #e8eef4; --muted: #9ba9b6; --line: #2d3844; --grid: #222c36;
+  --a: #82a8f2; --b: #f28eac; --go: #4fc996; --sun: #f5ca66; --plumb: #56636f; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 17px; line-height: 1.65;
+  padding-inline: 18px; padding-block: 48px 72px;
+}
+main { max-width: 780px; margin-inline: auto; display: flex; flex-direction: column; gap: 56px; }
+section { display: flex; flex-direction: column; gap: 16px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(2.1rem, 6vw, 3.1rem); font-weight: 800; }
+h2 { font-size: 1.6rem; font-weight: 800; }
+h3 { font-size: 1.1rem; font-weight: 800; }
+p { margin: 0; max-width: 66ch; }
+.kicker { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--go); }
+.lede { font-size: 1.2rem; }
+.muted { color: var(--muted); }
+.small { font-size: 14px; color: var(--muted); }
+code { font-family: var(--font-mono); font-size: 0.85em; background: var(--card); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
+.pull { font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; border-left: 4px solid var(--sun); padding-left: 14px; max-width: 40ch; }
+
+/* toys */
+.toy { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.toy canvas { display: block; width: 100%; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.btn {
+  font: 600 14px/1 var(--font-body); color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 999px; padding: 9px 16px; cursor: pointer;
+}
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--ink); color: var(--card); border-color: var(--ink); }
+.btn:focus-visible, input:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+.clock { font-family: var(--font-mono); font-size: 13px; color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 13px; font-weight: 600; border-radius: 999px; padding: 3px 10px; background: var(--bg); border: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); cursor: pointer; }
+.lane-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; }
+.lane-name { font-family: var(--font-display); font-weight: 800; font-size: 1rem; }
+.lane-name.a { color: var(--a); } .lane-name.b { color: var(--b); }
+.slider { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.slider input { width: 110px; }
+.slider output { font-family: var(--font-mono); color: var(--ink); min-width: 2.5ch; font-variant-numeric: tabular-nums; }
+input[type=range] { accent-color: var(--go); }
+.stats { width: 100%; border-collapse: collapse; font-size: 15px; font-variant-numeric: tabular-nums; }
+.stats th, .stats td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: right; }
+.stats th:first-child, .stats td:first-child { text-align: left; color: var(--muted); font-weight: 500; }
+.stats thead th { font-family: var(--font-display); font-weight: 800; }
+.stats thead th.a { color: var(--a); } .stats thead th.b { color: var(--b); }
+.stats td.win { font-weight: 700; }
+.stats td.win.a { color: var(--a); } .stats td.win.b { color: var(--b); }
+.stats td.win::after { content: " ●"; font-size: 10px; vertical-align: 2px; }
+.scroll { overflow-x: auto; }
+
+/* production vs simulator diagram */
+.seg { display: inline-flex; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+.seg button { font: 600 14px/1 var(--font-body); border: 0; background: transparent; color: var(--muted); border-radius: 999px; padding: 8px 16px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+#arch { display: block; width: 100%; min-width: 620px; height: auto; color: var(--ink); }
+#arch text { font-family: var(--font-body); fill: currentColor; }
+#arch .node { transition: transform .9s cubic-bezier(.6,0,.25,1), opacity .5s ease; }
+#arch .node rect { fill: var(--card); stroke: var(--plumb); stroke-width: 1.5; transition: stroke .5s; }
+#arch .node .t1 { font-size: 13px; font-weight: 600; }
+#arch .node .t2 { font-size: 11px; fill: var(--muted); }
+#arch .t-sim { opacity: 0; transition: opacity .4s; }
+#arch .t-prod { transition: opacity .4s; }
+#arch .arrows path { fill: none; stroke: var(--plumb); stroke-width: 1.5; }
+#arch .prod-arrows, #arch .sim-arrows { transition: opacity .5s; }
+#arch .sim-arrows { opacity: 0; }
+#arch .sim-arrows path { stroke: var(--go); stroke-width: 2; }
+#arch .sim-arrows text { fill: var(--go); font-size: 12px; font-weight: 600; }
+#arch.is-sim .plumb { opacity: 0; }
+#arch.is-sim .logic rect { stroke: var(--go); stroke-width: 2; }
+#arch.is-sim .t-sim { opacity: 1; }
+#arch.is-sim .t-prod { opacity: 0; }
+#arch.is-sim .prod-arrows { opacity: 0; }
+#arch.is-sim .sim-arrows { opacity: 1; }
+
+/* build steps */
+ol.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 22px; counter-reset: s; }
+ol.steps > li { counter-increment: s; display: grid; grid-template-columns: 40px 1fr; gap: 0 14px; }
+ol.steps > li::before {
+  content: counter(s); grid-row: span 2; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--go); color: var(--card); font: 800 15px/32px var(--font-display); text-align: center;
+}
+ol.steps > li > div { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+pre { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font: 13px/1.6 var(--font-mono); }
+pre .c { color: var(--muted); }
+pre .k { color: var(--go); font-weight: 500; }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+.two > div { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.two ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 15.5px; }
+.two li { display: grid; grid-template-columns: 22px 1fr; }
+.two .yes li::before { content: "✓"; color: var(--go); font-weight: 700; }
+.two .no li::before { content: "✕"; color: var(--b); font-weight: 700; }
+.two .yes h3 { color: var(--go); } .two .no h3 { color: var(--b); }
+footer { font-size: 14px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 18px; }
+
+/* synthetic sections */
+.flow { display: block; width: 100%; min-width: 620px; height: auto; color: var(--ink); }
+.flow text { font-family: var(--font-body); fill: currentColor; }
+.flow .box { fill: var(--card); stroke: var(--plumb); stroke-width: 1.5; }
+.flow .box.key { stroke: var(--go); stroke-width: 2; }
+.flow .box.bad { stroke: var(--b); stroke-dasharray: 5 4; }
+.flow .t1 { font-size: 13px; font-weight: 600; }
+.flow .t2 { font-size: 11px; fill: var(--muted); }
+.flow .mono { font-family: var(--font-mono); font-size: 12px; }
+.flow .ok { fill: none; stroke: var(--go); stroke-width: 2; }
+.flow .no { fill: none; stroke: var(--b); stroke-width: 2; stroke-dasharray: 5 4; }
+.flow .no-t { fill: var(--b); font-size: 12px; font-weight: 600; }
+.stats th.sel, .stats td.sel { background: var(--bg); }
+.chip.bad { color: var(--b); border-color: var(--b); }
+.chip.good { color: var(--go); border-color: var(--go); }
+
+/* extras */
+.ladder { display: flex; flex-direction: column; gap: 10px; }
+.ladder > div { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ladder .lab { font-size: 13px; font-weight: 600; color: var(--muted); min-width: 110px; }
+.chip.must { border-color: var(--go); color: var(--go); }
+.reasons { display: flex; flex-direction: column; gap: 4px; }
+.rbar {
+  display: grid; grid-template-columns: minmax(120px, 170px) 1fr 110px; align-items: center; gap: 10px;
+  font: inherit; color: inherit; text-align: left; background: transparent;
+  border: 1px solid transparent; border-radius: 10px; padding: 6px 8px; cursor: pointer;
+}
+.rbar:hover { border-color: var(--line); }
+.rbar[aria-pressed="true"] { border-color: var(--line); background: var(--bg); }
+.rbar code { background: transparent; border: 0; padding: 0; font-size: 13px; overflow-wrap: anywhere; }
+.rbar .track { height: 12px; background: var(--grid); border-radius: 999px; overflow: hidden; }
+.rbar .fill { height: 100%; background: var(--b); border-radius: 999px; transition: width .4s ease; }
+.rbar .num { font-size: 13px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.journey { display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow-y: auto; }
+.jrow { display: grid; grid-template-columns: 92px 1fr; gap: 10px; font-size: 14px; padding: 7px 10px; border-radius: 8px; background: var(--bg); border-left: 4px solid var(--plumb); }
+.jrow.matched { border-left-color: var(--go); }
+.jrow.expired { border-left-color: var(--b); }
+.jrow.outbid { border-left-color: var(--sun); }
+.jrow .jt { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; padding-top: 2px; }
+.jhead { font-size: 15px; font-weight: 600; }
+.logbar { height: 10px; border-radius: 999px; background: var(--a); min-width: 3px; transition: width .3s ease; }
+.three { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
+.three > div { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.three p { font-size: 15px; }
+.three .tag { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  #arch .node, #arch .t-sim, #arch .t-prod, #arch .prod-arrows, #arch .sim-arrows { transition: none; }
+}
+</style>
+
+<main>
+  <header style="display:flex;flex-direction:column;gap:14px">
+    <div class="kicker">Matchmaking · scorer simulator guide</div>
+    <h1>Simulating the matchmaker</h1>
+    <p class="lede">We want to answer one question, fast: does a new scorer make better matches than the one in production? This page covers what a simulator for that needs, what it can leave out, and the order to build it in.</p>
+    <p class="muted">Short version: the simulator is a <code>for</code> loop in one Go process.</p>
+  </header>
+
+  <!-- 1. the loop -->
+  <section>
+    <h2>A matchmaker is a loop</h2>
+    <p>Every 5 seconds the scheduler wakes up and does the same thing. New tickets join the pool and old ones expire. The scorer looks at every pair and says yes or no, with a score. The best pairs get matched and leave. Everyone else waits for the next tick.</p>
+    <p>Below, each dot is a ticket. Left to right is skill. The higher a dot sits, the longer that player has waited. The faint bar around each dot is the skill range the scorer accepts for that player, and it gets wider the longer they wait. Press <b>Step</b> to run one tick.</p>
+
+    <div class="toy" id="w1">
+      <div class="bar">
+        <button class="btn primary" id="w1-step">Step one tick</button>
+        <button class="btn" id="w1-play">Play</button>
+        <button class="btn" id="w1-reset">Reset</button>
+        <label class="check"><input type="checkbox" id="w1-ranges" checked> Show accepted range</label>
+        <span class="clock" id="w1-clock">t = 0s</span>
+      </div>
+      <canvas id="w1-canvas" aria-label="Tickets in the pool, by skill and wait time. Each tick new tickets arrive, compatible pairs are matched and leave, and waiting tickets move up."></canvas>
+      <div class="chips" id="w1-chips" aria-live="polite"></div>
+    </div>
+    <p class="small">Toy scorer: a pair matches when their skill gap fits inside both players' ranges. Closer pairs score higher. Tickets expire after 60s.</p>
+  </section>
+
+  <!-- 2. plumbing -->
+  <section>
+    <h2>Most of production is plumbing</h2>
+    <p>Production has a lot of moving parts: a matchmaking framework, a ticket store, a coordinator that collects proposals, RPC between services, Kubernetes. They let many pods share one queue safely. No ticket is matched twice, nothing is lost when a pod restarts, and it scales. Those are real problems, but they are consistency and scale problems. None of them decide who gets matched with whom.</p>
+
+    <div class="toy">
+      <div class="bar">
+        <div class="seg" role="group" aria-label="Diagram view">
+          <button id="v-prod" aria-pressed="true">Production</button>
+          <button id="v-sim" aria-pressed="false">Simulator</button>
+        </div>
+        <span class="clock" id="arch-note">14 components</span>
+      </div>
+      <div class="scroll">
+        <svg id="arch" viewBox="0 0 900 330" role="img" aria-label="Production has fourteen components. In the simulator, seven plumbing components disappear and the remaining seven line up into one loop: tick, add arrivals, drop expired, add bots, score pairs, greedy pick, remove matched."></svg>
+      </div>
+      <p class="small" id="arch-caption">Everything that runs in production today. Flip to Simulator to see what's left.</p>
+    </div>
+
+    <p>In one process, a slice of tickets and a <code>for</code> loop do the job the framework and the ticket store were doing. So the simulator should not need Docker, the framework, a database, or a network connection. If it does, it is simulating the infrastructure instead of the matchmaking.</p>
+  </section>
+
+  <!-- 3. replay -->
+  <section>
+    <h2>Replay over time, not one snapshot</h2>
+    <p>It's tempting to grab one logged pool, score it with both scorers, and compare. The trouble is that each tick's pool depends on the scorer, because whoever wasn't matched last tick is still there. A strict scorer leaves more players waiting, their ranges widen, and later ticks look different.</p>
+    <p>Here both scorers get exactly the same arrivals. Change their settings and watch the pools drift apart. Changing a setting replays from the start.</p>
+
+    <div class="toy" id="w2">
+      <div class="bar">
+        <button class="btn primary" id="w2-play">Play</button>
+        <button class="btn" id="w2-step">Step</button>
+        <button class="btn" id="w2-reset">Reset</button>
+        <button class="btn" id="w2-seed">New arrivals</button>
+        <label class="slider">arrivals per tick <input type="range" id="w2-rate" min="0.5" max="4" step="0.1" value="1.8"><output id="w2-rate-o">1.8</output></label>
+        <span class="clock" id="w2-clock">t = 0s</span>
+      </div>
+
+      <div class="lane-head">
+        <span class="lane-name a">Scorer A</span>
+        <label class="slider">starting range ± <input type="range" id="a-base" min="1" max="30" step="1" value="4"><output id="a-base-o">4</output></label>
+        <label class="slider">widens per 5s <input type="range" id="a-widen" min="0" max="10" step="1" value="2"><output id="a-widen-o">2</output></label>
+      </div>
+      <canvas id="a-canvas" aria-label="Scorer A's pool"></canvas>
+
+      <div class="lane-head">
+        <span class="lane-name b">Scorer B</span>
+        <label class="slider">starting range ± <input type="range" id="b-base" min="1" max="30" step="1" value="18"><output id="b-base-o">18</output></label>
+        <label class="slider">widens per 5s <input type="range" id="b-widen" min="0" max="10" step="1" value="4"><output id="b-widen-o">4</output></label>
+      </div>
+      <canvas id="b-canvas" aria-label="Scorer B's pool"></canvas>
+
+      <div class="scroll">
+        <table class="stats" aria-live="polite">
+          <thead><tr><th></th><th class="a">Scorer A</th><th class="b">Scorer B</th></tr></thead>
+          <tbody id="w2-stats"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <p>Notice the table never gives a free win. A stricter scorer makes closer matches and makes people wait for them. Measuring that trade-off needs wait times, and wait times only exist across ticks.</p>
+    <p class="pull">We don't control who joins the queue. We do control who is still in it.</p>
+  </section>
+
+  <!-- 4. build steps -->
+  <section>
+    <h2>How to build it</h2>
+    <ol class="steps">
+      <li><h3>Get the inputs from logs</h3>
+        <div>
+          <p>Export the create and delete logs for a time window: every ticket with its <code>createdAt</code>, args and tags, plus when it was cancelled. Also export the per-tick pool logs and the match logs for the same window. You'll need them in step 3. Work from files; a live stream consumer isn't needed.</p>
+        </div>
+      </li>
+      <li><h3>Write the loop</h3>
+        <div>
+          <p>Import the real scorer through its <code>Scorer</code> interface instead of copying it. Keep production's pair rules, such as skipping pairs where both tickets belong to the same player.</p>
+<pre><span class="k">func</span> Replay(arrivals []Ticket, newScorer <span class="k">func</span>() Scorer) Result {
+    sortByCreatedAt(arrivals)
+    <span class="k">var</span> pool []Ticket
+    <span class="k">var</span> res Result
+    <span class="k">for</span> now := firstTick(arrivals); !done(now); now += 5 {
+        pool = append(pool, arrivedBy(arrivals, now)...)  <span class="c">// createdAt &lt;= now</span>
+        pool = dropExpired(pool, now)                      <span class="c">// expiry, max ticket age, cancels</span>
+        pool = append(pool, botsDue(pool, now)...)         <span class="c">// bot fallback timer ran out</span>
+
+        sc := newScorer()
+        sc.Prepare(pool, now)
+        proposals := scoreAllPairs(sc, pool, now)          <span class="c">// same pair rules as production</span>
+        sc.Done()
+
+        matches := greedy(proposals)                       <span class="c">// best score first, no ticket twice</span>
+        pool = removeMatched(pool, matches)
+        res.Record(now, matches, pool)
+    }
+    <span class="k">return</span> res
+}</pre>
+        </div>
+      </li>
+      <li><h3>Check it against production</h3>
+        <div>
+          <p>Replay a day with the production scorer. For each tick, compare your pool and matches with the logged pool and matches for the same tick. They won't agree perfectly, because cancel timing and failed assignments add noise, but they should be close. A large gap means the loop is wrong, and every scorer comparison built on it would be wrong too. Don't skip this step.</p>
+        </div>
+      </li>
+      <li><h3>Compare scorers, one run each</h3>
+        <div>
+          <p>Give each scorer its own full replay over the same arrivals. Never put two scorers into one shared pool. Then compare three things: match quality (skill gap, score), time to match (median and p90), and who didn't match (expired, bot fallback).</p>
+        </div>
+      </li>
+      <li><h3>Make iterating cheap</h3>
+        <div>
+          <p>The point is to try lots of scorer ideas. Aim for a day of replay in under a minute and measure it early. Run it as a Go test or a small CLI that prints a comparison table. Have <code>Score</code> return a reason when it rejects a pair, so you can see why players weren't matched.</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <!-- 5. focus / skip -->
+  <section>
+    <h2>Where to spend your time</h2>
+    <div class="two">
+      <div class="yes">
+        <h3>Focus on</h3>
+        <ul>
+          <li>The tick order: arrive, expire, add bots, score, pick, remove</li>
+          <li>The real scorer code, imported, not rewritten</li>
+          <li>A greedy pick that behaves like production's evaluator</li>
+          <li>Same input, same output: no <code>time.Now()</code>, ties broken by ticket id</li>
+          <li>Speed, measured from the first version</li>
+          <li>Clear metrics and rejection reasons</li>
+        </ul>
+      </div>
+      <div class="no">
+        <h3>Leave out</h3>
+        <ul>
+          <li>The matchmaking framework, the ticket store and the coordinator</li>
+          <li>Docker, Kubernetes and gRPC services</li>
+          <li>Live event streams; read exported files instead</li>
+          <li>Wall-clock time and sleeps; time is just <code>now</code></li>
+          <li>Frontend, WebSockets and server allocation; a match just leaves the pool</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. limits -->
+  <section>
+    <h2>What it can't tell you</h2>
+    <p>Arrivals are replayed as they happened, so they don't react to the new scorer. In real life, a player matched sooner may queue again sooner, and a player who waits too long may give up. Trust the simulator for comparing scorers over hours of traffic, and confirm big changes with a small production experiment.</p>
+  </section>
+
+  <!-- 7. synthetic: why -->
+  <section>
+    <h2>Synthetic tickets, for questions the logs can't answer</h2>
+    <p>Logs only cover days that already happened. To ask "what if" you need tickets that never existed: a launch weekend at three times normal traffic, a quiet night, a new match type, a sudden wave of top-ranked players, or one odd edge case you want to pin down.</p>
+    <p>Synthetic tickets go into the same replay loop as logged ones. To the loop they are just another <code>[]Ticket</code>. They never go through the production matchmaker.</p>
+
+    <figure style="margin:0;display:flex;flex-direction:column;gap:10px">
+      <div class="toy scroll" style="padding:12px">
+        <svg class="flow" viewBox="0 0 760 200" role="img" aria-label="Real logs and a synthetic generator both produce a list of tickets that feeds the same replay loop and comparison. Sending generated tickets into the production matchmaker is a load test, not a simulation.">
+          <defs>
+            <marker id="fa-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--go)"/></marker>
+            <marker id="fa-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--b)"/></marker>
+          </defs>
+          <rect class="box" x="10" y="15" width="120" height="50" rx="10"/>
+          <text class="t1" x="70" y="37" text-anchor="middle">Real logs</text>
+          <text class="t2" x="70" y="53" text-anchor="middle">what happened</text>
+          <rect class="box" x="10" y="115" width="120" height="50" rx="10"/>
+          <text class="t1" x="70" y="137" text-anchor="middle">Generator</text>
+          <text class="t2" x="70" y="153" text-anchor="middle">what might happen</text>
+
+          <rect class="box key" x="230" y="65" width="150" height="50" rx="10"/>
+          <text class="mono" x="305" y="95" text-anchor="middle">[]Ticket</text>
+          <rect class="box key" x="440" y="65" width="130" height="50" rx="10"/>
+          <text class="t1" x="505" y="87" text-anchor="middle">Replay loop</text>
+          <text class="t2" x="505" y="103" text-anchor="middle">one run per scorer</text>
+          <rect class="box key" x="620" y="65" width="130" height="50" rx="10"/>
+          <text class="t1" x="685" y="87" text-anchor="middle">Compare</text>
+          <text class="t2" x="685" y="103" text-anchor="middle">quality · wait · unmatched</text>
+
+          <path class="ok" d="M130 40 C180 40 180 80 228 80" marker-end="url(#fa-g)"/>
+          <path class="ok" d="M130 135 C180 135 180 100 228 100" marker-end="url(#fa-g)"/>
+          <path class="ok" d="M380 90 H438" marker-end="url(#fa-g)"/>
+          <path class="ok" d="M570 90 H618" marker-end="url(#fa-g)"/>
+
+          <rect class="box bad" x="230" y="146" width="150" height="40" rx="10"/>
+          <text class="t1" x="305" y="171" text-anchor="middle">Live matchmaker</text>
+          <path class="no" d="M130 152 C180 160 190 166 228 166" marker-end="url(#fa-b)"/>
+          <text class="no-t" x="176" y="186" text-anchor="middle">✕</text>
+          <text class="no-t" x="392" y="171">load test, not a simulation</text>
+        </svg>
+      </div>
+      <figcaption class="small">Both sources produce the same thing: a list of tickets. The loop doesn't know or care which one it got. Creating tickets in a live matchmaker is a separate job, a load test, and it should never point at production.</figcaption>
+    </figure>
+  </section>
+
+  <!-- 8. synthetic: arrival shape -->
+  <section>
+    <h2>Arrivals have a shape</h2>
+    <p>The quickest generator spaces tickets evenly, one every few seconds. Real queues don't look like that. Players arrive at random, in clumps, and traffic rises and falls through the day. Pick a shape below and compare the start, middle and end of the run.</p>
+
+    <div class="toy" id="w3">
+      <div class="bar">
+        <div class="seg" role="group" aria-label="Arrival shape">
+          <button data-shape="even" aria-pressed="false">Evenly spaced</button>
+          <button data-shape="random" aria-pressed="false">Random</button>
+          <button data-shape="rush" aria-pressed="true">Rush hour</button>
+        </div>
+        <button class="btn primary" id="w3-play">Play</button>
+        <button class="btn" id="w3-reset">Reset</button>
+        <span class="clock" id="w3-clock">t = 0s</span>
+      </div>
+      <canvas id="w3-strip" aria-label="Arrival times over ten minutes"></canvas>
+      <canvas id="w3-canvas" aria-label="The pool for the chosen arrival shape"></canvas>
+      <div class="scroll">
+        <table class="stats" aria-live="polite">
+          <thead><tr><th></th><th>Start<br><span class="small">0:00–3:20</span></th><th>Middle<br><span class="small">3:20–6:40</span></th><th>End<br><span class="small">6:40–10:00</span></th><th class="sel">Whole run</th></tr></thead>
+          <tbody id="w3-stats"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <p>Over the whole run the averages come out about the same for every shape, which is exactly the trap. With rush-hour traffic, players in the busy middle match quickly and players in the quiet stretches wait much longer. Evenly spaced arrivals never produce a quiet stretch or a crowd, so they hide both.</p>
+    <p>Get the shape from the logs: count arrivals per minute for a real day, scale that curve for your scenario, then draw random arrivals within each minute. Report results per period, not only as one average.</p>
+  </section>
+
+  <!-- 9. synthetic: joint fields -->
+  <section>
+    <h2>A ticket's fields belong together</h2>
+    <p>Fields on a ticket are related. Higher-ranked players tend to have higher ratings, and rank, rating and win rate move together. If you generate each field from its own histogram, every field looks right on its own, but you get players who couldn't exist, like a low-rank account with a top-tier rating. The scorer's checks then see pairs it never sees in production.</p>
+
+    <div class="toy" id="w4">
+      <div class="bar">
+        <div class="seg" role="group" aria-label="How fields are sampled">
+          <button data-mode="joint" aria-pressed="true">Sampled together</button>
+          <button data-mode="indep" aria-pressed="false">Sampled separately</button>
+        </div>
+        <span class="chips" id="w4-chips" aria-live="polite"></span>
+      </div>
+      <canvas id="w4-canvas" aria-label="Scatter plot of rank against rating for 240 players"></canvas>
+      <p class="small">The histograms on the two edges never change. Each field on its own looks right in both modes. Only the combinations change, and the scorer works on combinations.</p>
+    </div>
+
+    <p>The simple fix is to resample whole real players from the logs and change only what the scenario is about, such as arrival times or the share of top-ranked players.</p>
+  </section>
+
+  <!-- 10. synthetic: build steps -->
+  <section>
+    <h2>How to build the generator</h2>
+    <ol class="steps">
+      <li><h3>Start from real players</h3>
+        <div><p>Sample whole tickets from a real day's create log, with all their args and tags kept together. Give each copy a fresh ticket id and player id, so the same-player rule still works.</p></div>
+      </li>
+      <li><h3>Shape the arrivals</h3>
+        <div><p>Take the per-minute arrival curve from the same logs. Scale it for the scenario, for example ×3 for a launch or ×0.2 for a quiet night, and draw random (Poisson) arrivals inside each minute.</p></div>
+      </li>
+      <li><h3>Move the time fields with the ticket</h3>
+        <div>
+          <p>Set <code>createdAt</code> from the new arrival time, and shift its other timestamps (expiry, fallback timers) by the same amount, so each copy keeps its real offsets.</p>
+<pre><span class="k">type</span> Scenario <span class="k">struct</span> {
+    Name      <span class="k">string</span>
+    Seed      <span class="k">uint64</span>
+    RateScale <span class="k">float64</span>               <span class="c">// 3.0 = launch weekend</span>
+    Mutate    <span class="k">func</span>(*Ticket)    <span class="c">// optional, e.g. raise the share of top-ranked players</span>
+}
+
+<span class="k">func</span> Generate(real []Ticket, perMinute []<span class="k">float64</span>, start <span class="k">int64</span>, sc Scenario) []Ticket {
+    r := rand.New(rand.NewPCG(sc.Seed, 0))
+    <span class="k">var</span> out []Ticket
+    <span class="k">for</span> m, rate := <span class="k">range</span> perMinute {
+        <span class="k">for</span> n := poisson(r, rate*sc.RateScale); n &gt; 0; n-- {
+            t := clone(real[r.IntN(len(real))])      <span class="c">// a whole player: fields stay together</span>
+            t.ID, t.PlayerID = freshIDs(r)
+            shiftTimes(t, start+<span class="k">int64</span>(m*60)+r.Int64N(60)) <span class="c">// all timestamps move together</span>
+            <span class="k">if</span> sc.Mutate != <span class="k">nil</span> {
+                sc.Mutate(t)
+            }
+            out = append(out, t)
+        }
+    }
+    <span class="k">return</span> out
+}</pre>
+        </div>
+      </li>
+      <li><h3>Seed it and save it</h3>
+        <div><p>Always use a seeded random generator. Write the generated tickets to a file along with the seed and the scenario name, so anyone can rerun a comparison exactly.</p></div>
+      </li>
+      <li><h3>Check a 1× scenario against a real day</h3>
+        <div><p>Generate traffic at normal scale and replay it with the production scorer. Match rate, wait times and expiries should look like the real day. If they don't, fix the generator before trusting any "what if" it produces.</p></div>
+      </li>
+    </ol>
+  </section>
+
+  <!-- 11. synthetic: focus / skip -->
+  <section>
+    <h2>Where to spend your time on synthetic traffic</h2>
+    <div class="two">
+      <div class="yes">
+        <h3>Focus on</h3>
+        <ul>
+          <li>Whole real players, resampled</li>
+          <li>Arrival curves taken from real logs, then scaled</li>
+          <li>Named scenarios, like "launch ×3" or "quiet night ×0.2"</li>
+          <li>A seed and a saved file for every scenario</li>
+          <li>Results per period, not just one average</li>
+          <li>The 1× check against a real day</li>
+        </ul>
+      </div>
+      <div class="no">
+        <h3>Leave out</h3>
+        <ul>
+          <li>Pushing synthetic tickets into a live matchmaker or queue; that's a load test, and in production it pollutes real queues and metrics</li>
+          <li>Evenly spaced arrivals</li>
+          <li>Each field drawn from its own made-up range</li>
+          <li>Unseeded randomness</li>
+        </ul>
+      </div>
+    </div>
+    <p class="pull">Logs tell you what happened. Synthetic tickets let you ask what might.</p>
+  </section>
+
+  <!-- 12. extras: intro -->
+  <section>
+    <div class="kicker">Optional</div>
+    <h2>Extras that make it a joy to use</h2>
+    <p>Everything from here on is a good-to-have. The loop, the check against production and the comparison table are enough to answer "is B better than A". The extras make that answer faster to reach and easier to explain. Build them after the loop is validated, not before.</p>
+    <div class="ladder">
+      <div><span class="lab">Must have</span><span class="chip must">Replay loop</span><span class="chip must">Check against production</span><span class="chip must">One run per scorer</span><span class="chip must">Comparison table</span></div>
+      <div><span class="lab">Good to have</span><span class="chip">Rejection reasons</span><span class="chip">Ticket journeys</span><span class="chip">Script scorers</span><span class="chip">A workbench UI</span></div>
+    </div>
+  </section>
+
+  <!-- 13. extras: rejection reasons -->
+  <section>
+    <h2>Rejections that explain themselves</h2>
+    <p>A scorer that only says "no" leaves you guessing. Have <code>Score</code> return a short reason when it rejects a pair, plus the numbers behind the decision: both skills, the gap, the allowed range, how long each player waited. Count the reasons across a replay and the cause of long waits usually jumps out.</p>
+    <p>This toy scorer runs three checks in order: same app version, both players have waited the minimum time, and the skill gap fits inside both ranges. Move the sliders, then click a reason to see example pairs.</p>
+
+    <div class="toy" id="w5">
+      <div class="bar">
+        <label class="slider">starting range ± <input type="range" id="r-base" min="1" max="25" step="1" value="5"><output id="r-base-o">5</output></label>
+        <label class="slider">widens per 5s <input type="range" id="r-widen" min="0" max="8" step="1" value="3"><output id="r-widen-o">3</output></label>
+        <label class="slider">minimum wait <input type="range" id="r-min" min="0" max="20" step="5" value="10"><output id="r-min-o">10</output>s</label>
+      </div>
+      <div class="bar">
+        <div class="seg" role="group" aria-label="Which failing checks to record">
+          <button data-rmode="first" aria-pressed="true">First failing check</button>
+          <button data-rmode="all" aria-pressed="false">Every failing check</button>
+        </div>
+        <span class="chips" id="w5-chips" aria-live="polite"></span>
+      </div>
+      <div class="reasons" id="w5-bars" role="group" aria-label="Rejection reasons"></div>
+      <div class="scroll">
+        <table class="stats">
+          <thead><tr><th>Example</th><th>A skill</th><th>B skill</th><th>Gap</th><th>Allowed</th><th>A waited</th><th>B waited</th></tr></thead>
+          <tbody id="w5-samples"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <p>Record every check that fails, not only the first. With "first only", a strict minimum wait hides skill-range problems behind it, and you end up tuning the wrong knob. Set a high minimum wait and flip the toggle to see it.</p>
+  </section>
+
+  <!-- 14. extras: ticket journey -->
+  <section>
+    <h2>Follow one ticket</h2>
+    <p>Counts tell you what's common. Sometimes you need one player's story: when they joined, who they could have matched with at each tick, why each pair was refused, and who they finally got. That view answers most "why did this player wait 50 seconds" questions.</p>
+
+    <div class="toy" id="w6">
+      <div class="bar">
+        <button class="btn" id="j-prev">← Previous ticket</button>
+        <button class="btn" id="j-next">Next ticket →</button>
+        <button class="btn primary" id="j-long">Longest wait</button>
+      </div>
+      <div class="jhead" id="j-head"></div>
+      <div class="journey" id="j-rows" aria-live="polite"></div>
+      <p class="small">Uses the same replay and settings as the reasons demo above.</p>
+    </div>
+
+    <p>Look for ticks marked "accepted, but a better pair won". The scorer said yes, and the greedy pick gave the partner to someone else. Only a replay shows that; a single <code>Score</code> call never will.</p>
+  </section>
+
+  <!-- 15. extras: script scorers -->
+  <section>
+    <h2>Plugging in scorers without a rebuild</h2>
+    <p>Pasting a new scorer into a UI and running it straight away is great for quick experiments. The catch is speed. A common first attempt embeds a JavaScript interpreter and calls the script once for every pair, converting both tickets into JavaScript objects each time. A replay does that for every pair, every tick, 17,280 ticks a day, and it gets slow.</p>
+
+    <div class="toy" id="w7">
+      <div class="bar">
+        <label class="slider">tickets in the pool <input type="range" id="x-n" min="10" max="500" step="10" value="150"><output id="x-n-o">150</output></label>
+      </div>
+      <div class="scroll">
+        <table class="stats">
+          <thead><tr><th>Approach</th><th>Script calls per tick</th><th>Ticket conversions per tick</th><th>Script calls per simulated day</th><th style="width:28%"></th></tr></thead>
+          <tbody id="x-rows"></tbody>
+        </table>
+      </div>
+      <p class="small">Exact counts, not timings. The bar is on a log scale.</p>
+    </div>
+
+    <p>The fix is the same whichever runtime you pick: convert each ticket once per tick, make one call with the whole pool, and get back every pair's result. That turns millions of crossings into one per tick.</p>
+
+    <div class="three">
+      <div>
+        <h3>Go scorer + config knobs</h3>
+        <span class="tag">Good</span><p>Fastest, type-checked and reviewed like any other code. Most tuning is changing numbers, which config handles without a rebuild.</p>
+        <span class="tag">Costs</span><p>New logic needs a rebuild, which takes seconds.</p>
+      </div>
+      <div>
+        <h3>Embedded JavaScript</h3>
+        <span class="tag">Good</span><p>No rebuild, easy to write, runs in the same process.</p>
+        <span class="tag">Costs</span><p>An interpreter, so the maths is slow too. Every call pays to convert Go values to JS.</p>
+      </div>
+      <div>
+        <h3>WebAssembly</h3>
+        <span class="tag">Good</span><p>No host rebuild, compiled code that runs much faster than an interpreter, any source language.</p>
+        <span class="tag">Costs</span><p>An extra toolchain, and data has to be copied into wasm memory, so batching matters even more.</p>
+      </div>
+    </div>
+    <p>Start by exposing the scorer's numbers as config: ranges, thresholds, weights. Write new logic in Go, where a rebuild and a replay take seconds. Add script scorers only when people who don't write Go need to try ideas, and batch the calls from day one.</p>
+  </section>
+
+  <!-- 16. extras: workbench -->
+  <section>
+    <h2>A workbench on top</h2>
+    <p>Once the pieces above exist, a small UI ties them together and turns the simulator into something the whole team uses. Views worth building, roughly in this order:</p>
+    <ol class="steps">
+      <li><h3>Comparison table</h3><div><p>Scorers side by side on quality, wait and unmatched players, split by period.</p></div></li>
+      <li><h3>Synthetic generator form</h3><div><p>Pick a scenario, a scale and a seed, then save the generated tickets so the run can be repeated.</p></div></li>
+      <li><h3>Tick drilldown</h3><div><p>For any tick: the pool, the proposals, the matches and the rejections.</p></div></li>
+      <li><h3>Reasons and journeys</h3><div><p>The two views above, on real replays.</p></div></li>
+      <li><h3>Export</h3><div><p>JSON or CSV of any view, for digging further in a notebook.</p></div></li>
+    </ol>
+    <p>Keep the workbench a reader of replay output, built on the same engine as the CLI, so a result in the UI is the same result in a test. If it's hosted anywhere shared, put it behind a login and keep it off the production matchmaking services.</p>
+  </section>
+
+  <!-- 17. extras: focus / skip -->
+  <section>
+    <h2>Where to spend your time on extras</h2>
+    <div class="two">
+      <div class="yes">
+        <h3>Focus on</h3>
+        <ul>
+          <li>A reason on every rejection, with the numbers that caused it</li>
+          <li>Every failing check recorded, not only the first</li>
+          <li>Scorer knobs as config before any scripting</li>
+          <li>One script call per tick, never one per pair</li>
+          <li>Tools that read replay output and share the CLI's engine</li>
+        </ul>
+      </div>
+      <div class="no">
+        <h3>Leave out</h3>
+        <ul>
+          <li>Building the dashboard before the loop is validated</li>
+          <li>Script scorers for changes that are only numbers</li>
+          <li>Admin tools inside production services, or without a login</li>
+          <li>Per-pair calls across a language boundary</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer>The demos use a made-up scorer and made-up traffic. The loop follows a typical production matchmaker: a fixed tick, pairwise scoring and a greedy evaluator.</footer>
+</main>
+
+<script>
+(() => {
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const EXPIRY = 60, TICKS = 120;
+
+  // ---------- deterministic traffic ----------
+  function rng(seed) {
+    let a = seed >>> 0;
+    return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  function makeArrivals(seed, rate) {
+    const r = rng(seed), out = []; let id = 0;
+    for (let k = 0; k < TICKS; k++) {
+      const L = Math.exp(-rate); let n = 0, p = 1;
+      do { n++; p *= r(); } while (p > L);
+      n--;
+      const list = [];
+      for (let i = 0; i < n; i++) {
+        const g = Math.sqrt(-2 * Math.log(r() || 1e-9)) * Math.cos(2 * Math.PI * r());
+        const skill = Math.max(3, Math.min(97, Math.round(50 + 19 * g)));
+        list.push({ id: id++, skill, born: k * 5 - Math.floor(r() * 5) });
+      }
+      out.push(list);
+    }
+    return out;
+  }
+
+  // ---------- the loop ----------
+  class Lane {
+    constructor(arrivals, cfg) { this.arrivals = arrivals; this.cfg = cfg; this.reset(); }
+    reset() { this.pool = []; this.tick = 0; this.now = 0; this.s = { pairs: 0, gap: 0, wait: 0, expired: 0 }; }
+    allow(t) { return this.cfg.base + this.cfg.widen * Math.floor(Math.max(0, this.now - t.born) / 5); }
+    done() { return this.tick >= this.arrivals.length; }
+    step() {
+      const now = this.tick * 5; this.now = now;
+      const arrived = (this.arrivals[this.tick] || []).map(t => ({ ...t }));
+      this.pool.push(...arrived);
+      const expired = [];
+      this.pool = this.pool.filter(t => (now - t.born >= EXPIRY ? (expired.push(t), false) : true));
+      this.s.expired += expired.length;
+      const P = this.pool, props = [];
+      for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++) {
+        const a = P[i], b = P[j], gap = Math.abs(a.skill - b.skill);
+        if (gap <= Math.min(this.allow(a), this.allow(b))) props.push({ a, b, gap, score: 100 - gap + 0.05 * (2 * now - a.born - b.born) });
+      }
+      props.sort((p, q) => q.score - p.score || p.a.id - q.a.id || p.b.id - q.b.id);
+      const used = new Set(), matches = [];
+      for (const p of props) {
+        if (used.has(p.a.id) || used.has(p.b.id)) continue;
+        used.add(p.a.id); used.add(p.b.id); matches.push(p);
+        this.s.pairs++; this.s.gap += p.gap; this.s.wait += (now - p.a.born) + (now - p.b.born);
+      }
+      this.pool = P.filter(t => !used.has(t.id));
+      this.tick++;
+      return { now, arrived, expired, matches };
+    }
+    stats() {
+      const n = this.s.pairs;
+      return { pairs: n, gap: n ? this.s.gap / n : 0, wait: n ? this.s.wait / (2 * n) : 0, expired: this.s.expired, waiting: this.pool.length };
+    }
+  }
+
+  // ---------- drawing ----------
+  class LaneView {
+    constructor(canvas, lane, colorVar, height, showRanges = true) {
+      this.c = canvas; this.ctx = canvas.getContext('2d'); this.lane = lane; this.colorVar = colorVar;
+      this.h = height; this.showRanges = showRanges; this.ents = new Map(); this.links = []; this.resize();
+    }
+    resize() {
+      const w = Math.max(280, this.c.parentElement.clientWidth - 0);
+      const dpr = window.devicePixelRatio || 1;
+      this.w = w; this.c.width = Math.round(w * dpr); this.c.height = Math.round(this.h * dpr);
+      this.c.style.height = this.h + 'px';
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      for (const e of this.ents.values()) { e.tx = this.X(e.t.skill); e.x = e.tx; e.ty = this.Y(this.lane.now - e.t.born); e.y = e.ty; }
+    }
+    X(s) { const p = 22; return p + (s / 100) * (this.w - 2 * p); }
+    Y(wait) { const top = 22, bot = this.h - 26; return bot - (Math.min(Math.max(wait, 0), EXPIRY) / EXPIRY) * (bot - top); }
+    clear() { this.ents.clear(); this.links = []; }
+    apply(r, instant) {
+      const ms = performance.now();
+      for (const t of r.arrived) this.ents.set(t.id, { t, x: this.X(t.skill), y: this.Y(r.now - t.born) + 16, tx: this.X(t.skill), ty: this.Y(r.now - t.born), a: 0, ta: 1, grey: false, dieAt: 0 });
+      for (const t of this.lane.pool) { const e = this.ents.get(t.id); if (e) e.ty = this.Y(r.now - t.born); }
+      for (const m of r.matches) {
+        for (const t of [m.a, m.b]) { const e = this.ents.get(t.id); if (e) { e.ty = this.Y(r.now - t.born); e.dieAt = ms + 550; } }
+        this.links.push({ a: m.a.id, b: m.b.id, t0: ms });
+      }
+      for (const t of r.expired) { const e = this.ents.get(t.id); if (e) { e.grey = true; e.dieAt = ms + 300; } }
+      if (instant) {
+        for (const [id, e] of this.ents) { if (e.dieAt) this.ents.delete(id); else { e.x = e.tx; e.y = e.ty; e.a = 1; } }
+        this.links = [];
+      }
+    }
+    frame(ms) {
+      const k = reduceMotion ? 1 : 0.16, ctx = this.ctx;
+      for (const [id, e] of this.ents) {
+        e.x += (e.tx - e.x) * k; e.y += (e.ty - e.y) * k;
+        if (e.dieAt && ms > e.dieAt) e.ta = 0;
+        e.a += (e.ta - e.a) * (reduceMotion ? 1 : 0.2);
+        if (e.dieAt && ms > e.dieAt && e.a < 0.04) this.ents.delete(id);
+      }
+      this.links = this.links.filter(l => ms - l.t0 < 1000);
+
+      const color = css(this.colorVar), grid = css('--grid'), muted = css('--muted'), card = css('--card'), plumb = css('--plumb');
+      ctx.clearRect(0, 0, this.w, this.h);
+      ctx.font = '11px Figtree, system-ui, sans-serif';
+      ctx.lineWidth = 1;
+      for (const w of [0, 15, 30, 45]) {
+        const y = this.Y(w); ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(this.w, y); ctx.stroke();
+      }
+      const yE = this.Y(EXPIRY);
+      ctx.strokeStyle = muted; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(0, yE); ctx.lineTo(this.w, yE); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = muted; ctx.textAlign = 'right'; ctx.fillText('expires at 60s', this.w - 4, yE - 5);
+      ctx.textAlign = 'left'; ctx.fillText('just joined', 4, this.h - 8);
+      ctx.textAlign = 'center'; ctx.fillText('skill →', this.w / 2, this.h - 8);
+      ctx.textAlign = 'left'; ctx.fillText('waited ↑', 4, yE - 5);
+
+      if (this.showRanges) {
+        ctx.globalAlpha = 0.2; ctx.strokeStyle = color; ctx.lineWidth = 6; ctx.lineCap = 'round';
+        for (const e of this.ents.values()) {
+          if (e.dieAt) continue;
+          const al = this.lane.allow(e.t);
+          ctx.beginPath(); ctx.moveTo(this.X(Math.max(0, e.t.skill - al)), e.y); ctx.lineTo(this.X(Math.min(100, e.t.skill + al)), e.y); ctx.stroke();
+        }
+        ctx.globalAlpha = 1; ctx.lineCap = 'butt';
+      }
+      for (const l of this.links) {
+        const a = this.ents.get(l.a), b = this.ents.get(l.b); if (!a || !b) continue;
+        ctx.globalAlpha = Math.max(0, 1 - (ms - l.t0) / 1000);
+        ctx.strokeStyle = color; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y);
+        ctx.quadraticCurveTo((a.x + b.x) / 2, Math.min(a.y, b.y) - 22, b.x, b.y); ctx.stroke();
+      }
+      for (const e of this.ents.values()) {
+        ctx.globalAlpha = Math.max(0, Math.min(1, e.a));
+        ctx.beginPath(); ctx.arc(e.x, e.y, 6.5, 0, Math.PI * 2);
+        ctx.fillStyle = e.grey ? plumb : color; ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = card; ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  const widgets = [];
+  function loop(ms) {
+    for (const w of widgets) {
+      if (w.playing && ms - w.last > w.interval) { w.last = ms; w.step(false); }
+      w.views.forEach(v => v.frame(ms));
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- widget 1: one lane ----------
+  (() => {
+    const canvas = document.getElementById('w1-canvas');
+    const arrivals = makeArrivals(11, 1.4);
+    const lane = new Lane(arrivals, { base: 6, widen: 3 });
+    const view = new LaneView(canvas, lane, '--a', 240);
+    const playBtn = document.getElementById('w1-play'), clock = document.getElementById('w1-clock'), chips = document.getElementById('w1-chips');
+    const w = { views: [view], playing: false, last: 0, interval: 1100 };
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    w.step = instant => {
+      if (lane.done()) { setPlaying(false); return; }
+      const r = lane.step(); view.apply(r, instant);
+      clock.textContent = `t = ${r.now}s`;
+      chips.innerHTML = '';
+      [`+${plural(r.arrived.length, 'ticket arrived', 'tickets arrived')}`,
+       `${plural(r.matches.length, 'pair', 'pairs')} matched`,
+       `${r.expired.length} expired`,
+       `${plural(lane.pool.length, 'player', 'players')} still waiting`].forEach(txt => {
+        const s = document.createElement('span'); s.className = 'chip'; s.textContent = txt; chips.appendChild(s);
+      });
+    };
+    function setPlaying(p) { w.playing = p; playBtn.textContent = p ? 'Pause' : 'Play'; }
+    function reset() { setPlaying(false); lane.reset(); view.clear(); for (let i = 0; i < 7; i++) w.step(true); }
+    document.getElementById('w1-step').onclick = () => { setPlaying(false); w.step(false); };
+    playBtn.onclick = () => setPlaying(!w.playing);
+    document.getElementById('w1-reset').onclick = reset;
+    document.getElementById('w1-ranges').onchange = e => { view.showRanges = e.target.checked; };
+    w.resize = () => view.resize();
+    reset();
+    widgets.push(w);
+  })();
+
+  // ---------- widget 2: two scorers, same arrivals ----------
+  (() => {
+    const $ = id => document.getElementById(id);
+    let seed = 42;
+    let arrivals = makeArrivals(seed, 1.8);
+    const cfgA = { base: 4, widen: 2 }, cfgB = { base: 18, widen: 4 };
+    const laneA = new Lane(arrivals, cfgA), laneB = new Lane(arrivals, cfgB);
+    const vA = new LaneView($('a-canvas'), laneA, '--a', 170), vB = new LaneView($('b-canvas'), laneB, '--b', 170);
+    const w = { views: [vA, vB], playing: false, last: 0, interval: 650 };
+    const playBtn = $('w2-play'), clock = $('w2-clock'), body = $('w2-stats');
+    const rows = [
+      ['Pairs made', 'pairs', 'high', v => v.toFixed(0)],
+      ['Average skill gap', 'gap', 'low', v => v.toFixed(1)],
+      ['Average wait to match', 'wait', 'low', v => v.toFixed(1) + 's'],
+      ['Expired unmatched', 'expired', 'low', v => v.toFixed(0)],
+      ['Waiting right now', 'waiting', null, v => v.toFixed(0)],
+    ];
+    function render() {
+      const a = laneA.stats(), b = laneB.stats();
+      body.innerHTML = '';
+      for (const [label, key, better, fmt] of rows) {
+        const tr = document.createElement('tr');
+        const th = document.createElement('td'); th.textContent = label; tr.appendChild(th);
+        for (const [s, o, cls] of [[a, b, 'a'], [b, a, 'b']]) {
+          const td = document.createElement('td'); td.textContent = fmt(s[key]);
+          const wins = better && s[key] !== o[key] && (better === 'high' ? s[key] > o[key] : s[key] < o[key]) && (key !== 'gap' && key !== 'wait' || s.pairs > 0);
+          td.className = cls + (wins ? ' win' : '');
+          tr.appendChild(td);
+        }
+        body.appendChild(tr);
+      }
+      clock.textContent = laneA.done() ? `t = ${laneA.now}s · 10 minutes replayed` : `t = ${laneA.now}s`;
+    }
+    w.step = instant => {
+      if (laneA.done()) { setPlaying(false); return; }
+      vA.apply(laneA.step(), instant); vB.apply(laneB.step(), instant); render();
+    };
+    function setPlaying(p) { w.playing = p; playBtn.textContent = p ? 'Pause' : 'Play'; }
+    function restart(newArrivals) {
+      setPlaying(false);
+      if (newArrivals) { arrivals = makeArrivals(seed, parseFloat($('w2-rate').value)); laneA.arrivals = arrivals; laneB.arrivals = arrivals; }
+      laneA.reset(); laneB.reset(); vA.clear(); vB.clear();
+      for (let i = 0; i < 12; i++) w.step(true);
+    }
+    playBtn.onclick = () => { if (laneA.done()) restart(false); setPlaying(!w.playing); };
+    $('w2-step').onclick = () => { setPlaying(false); w.step(false); };
+    $('w2-reset').onclick = () => restart(false);
+    $('w2-seed').onclick = () => { seed = (seed * 7919 + 13) % 100000; restart(true); };
+    const bind = (id, obj, key) => {
+      const input = $(id), out = $(id + '-o');
+      input.addEventListener('input', () => {
+        out.textContent = input.value;
+        if (obj) { obj[key] = parseFloat(input.value); restart(false); } else restart(true);
+      });
+    };
+    bind('w2-rate', null, null);
+    bind('a-base', cfgA, 'base'); bind('a-widen', cfgA, 'widen');
+    bind('b-base', cfgB, 'base'); bind('b-widen', cfgB, 'widen');
+    w.resize = () => { vA.resize(); vB.resize(); };
+    restart(false);
+    widgets.push(w);
+  })();
+
+  // ---------- production vs simulator diagram ----------
+  (() => {
+    const svg = document.getElementById('arch'), NS = 'http://www.w3.org/2000/svg';
+    const W = 118, H = 46;
+    const nodes = [
+      ['client', 'plumb', 16, 16, 'Game client', 'opens a socket'],
+      ['fe', 'plumb', 196, 16, 'Frontend', 'WebSocket server'],
+      ['api', 'plumb', 376, 16, 'Ticket API', 'create · delete'],
+      ['store', 'plumb', 556, 16, 'Ticket store', 'shared state'],
+      ['query', 'plumb', 556, 106, 'Pool query', 'filters tickets'],
+      ['backend', 'plumb', 196, 196, 'Match backend', 'fetch matches'],
+      ['sync', 'plumb', 376, 196, 'Coordinator', 'collects proposals'],
+      ['tick', 'logic', 16, 196, 'Scheduler', 'loop every 5s', 0, 'Tick', 'now += 5'],
+      ['logs', 'logic', 736, 16, 'Event logs', 'tickets · matches', 1, 'Add arrivals', 'from create log'],
+      ['expiry', 'logic', 376, 106, 'Expiry loops', 'delete old tickets', 2, 'Drop expired', 'expiry, max age'],
+      ['bots', 'logic', 196, 106, 'Bot fallback', 'after a timer', 3, 'Add bots', 'after a timer'],
+      ['matchfn', 'logic', 556, 196, 'Match function', 'scores pairs', 4, 'Score pairs', 'your scorer'],
+      ['eval', 'logic', 736, 196, 'Evaluator', 'picks matches', 5, 'Greedy pick', 'best score first'],
+      ['assign', 'logic', 16, 276, 'Assign', 'to a game server', 6, 'Remove matched', 'they leave'],
+    ];
+    const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
+    const defs = el('defs', {}, svg);
+    const mk = (id, color) => { const m = el('marker', { id, viewBox: '0 0 10 10', refX: '9', refY: '5', markerWidth: '7', markerHeight: '7', orient: 'auto-start-reverse' }, defs); el('path', { d: 'M0 0 L10 5 L0 10 z', fill: color }, m); };
+    mk('ah-p', 'var(--plumb)'); mk('ah-g', 'var(--go)');
+
+    const prod = el('g', { class: 'arrows prod-arrows' }, svg);
+    ['M134 39 H194', 'M314 39 H374', 'M494 39 H554', 'M615 62 V104', 'M615 152 V194', 'M134 219 H194', 'M314 219 H374', 'M494 219 H554', 'M674 219 H734', 'M795 242 V299 H136', 'M300 106 L392 64', 'M435 106 V64']
+      .forEach(d => el('path', { d, 'marker-end': 'url(#ah-p)' }, prod));
+    el('path', { d: 'M795 194 V64', 'stroke-dasharray': '4 4', 'marker-end': 'url(#ah-p)' }, prod);
+
+    const sim = el('g', { class: 'arrows sim-arrows' }, svg);
+    const sx = i => 1 + i * 130, SY = 140;
+    for (let i = 0; i < 6; i++) el('path', { d: `M${sx(i) + W} ${SY + 23} H${sx(i + 1) - 2}`, 'marker-end': 'url(#ah-g)' }, sim);
+    el('path', { d: `M${sx(6) + W / 2} ${SY + H} V${SY + 104} H${sx(0) + W / 2} V${SY + H + 2}`, 'marker-end': 'url(#ah-g)' }, sim);
+    const lt = el('text', { x: 450, y: SY + 98, 'text-anchor': 'middle' }, sim); lt.textContent = 'next tick: everyone unmatched stays in the pool';
+    const tt = el('text', { x: 450, y: SY - 22, 'text-anchor': 'middle' }, sim); tt.textContent = 'one Go process · a slice of tickets · no network';
+
+    const groups = [];
+    for (const [id, kind, px, py, l1, l2, idx, s1, s2] of nodes) {
+      const g = el('g', { class: 'node ' + kind }, svg);
+      el('rect', { width: W, height: H, rx: 10 }, g);
+      const tp = el('g', { class: 't-prod' }, g);
+      el('text', { class: 't1', x: W / 2, y: 20, 'text-anchor': 'middle' }, tp).textContent = l1;
+      el('text', { class: 't2', x: W / 2, y: 36, 'text-anchor': 'middle' }, tp).textContent = l2;
+      if (kind === 'logic') {
+        const ts = el('g', { class: 't-sim' }, g);
+        el('text', { class: 't1', x: W / 2, y: 20, 'text-anchor': 'middle' }, ts).textContent = s1;
+        el('text', { class: 't2', x: W / 2, y: 36, 'text-anchor': 'middle' }, ts).textContent = s2;
+      }
+      groups.push({ g, px, py, sx: kind === 'logic' ? sx(idx) : px, sy: kind === 'logic' ? SY : py });
+    }
+    const place = isSim => groups.forEach(n => { n.g.style.transform = `translate(${isSim ? n.sx : n.px}px, ${isSim ? n.sy : n.py}px)`; });
+    const bProd = document.getElementById('v-prod'), bSim = document.getElementById('v-sim');
+    const note = document.getElementById('arch-note'), cap = document.getElementById('arch-caption');
+    function set(isSim) {
+      svg.classList.toggle('is-sim', isSim);
+      bProd.setAttribute('aria-pressed', String(!isSim)); bSim.setAttribute('aria-pressed', String(isSim));
+      place(isSim);
+      note.textContent = isSim ? '7 components' : '14 components';
+      cap.textContent = isSim
+        ? 'Gone: game client, frontend, ticket API, ticket store, pool query, match backend, coordinator. What remains is the loop from the first demo.'
+        : 'Everything that runs in production today. Flip to Simulator to see what’s left.';
+    }
+    bProd.onclick = () => set(false); bSim.onclick = () => set(true);
+    set(false);
+  })();
+
+  // ---------- synthetic: arrival shapes ----------
+  function makeShaped(seed, rate, shape) {
+    const r = rng(seed), out = Array.from({ length: TICKS }, () => []); let id = 0;
+    const skill = () => {
+      const g = Math.sqrt(-2 * Math.log(r() || 1e-9)) * Math.cos(2 * Math.PI * r());
+      return Math.max(3, Math.min(97, Math.round(50 + 19 * g)));
+    };
+    if (shape === 'even') {
+      const gap = 5 / rate;
+      for (let t = gap; ; t += gap) {
+        const k = Math.ceil(t / 5); if (k >= TICKS) break;
+        out[k].push({ id: id++, skill: skill(), born: Math.floor(t) });
+      }
+    } else {
+      for (let k = 0; k < TICKS; k++) {
+        // rush hour keeps the same average rate but puts most of it in the middle
+        const lam = shape === 'rush' ? rate * (0.1 + 1.8 * Math.sin(Math.PI * k / TICKS) ** 4 / 0.75) : rate;
+        const L = Math.exp(-lam); let n = 0, p = 1;
+        do { n++; p *= r(); } while (p > L);
+        n--;
+        for (let i = 0; i < n; i++) out[k].push({ id: id++, skill: skill(), born: k * 5 - Math.floor(r() * 5) });
+      }
+    }
+    return out;
+  }
+  function periodStats(arr, cfg) {
+    const l = new Lane(arr, cfg), P = [0, 1, 2, 3].map(() => ({ arr: 0, w: 0, n: 0, e: 0 }));
+    const third = k => Math.min(2, Math.floor(k / (TICKS / 3)));
+    arr.forEach((lst, k) => { P[third(k)].arr += lst.length; P[3].arr += lst.length; });
+    while (!l.done()) {
+      const k = l.tick, ps = l.s.pairs, pw = l.s.wait, pe = l.s.expired;
+      l.step();
+      for (const T of [P[third(k)], P[3]]) { T.n += 2 * (l.s.pairs - ps); T.w += l.s.wait - pw; T.e += l.s.expired - pe; }
+    }
+    return P;
+  }
+  class Strip {
+    constructor(canvas, getArr, getNow) { this.c = canvas; this.ctx = canvas.getContext('2d'); this.getArr = getArr; this.getNow = getNow; this.h = 62; this.resize(); }
+    resize() {
+      const w = Math.max(280, this.c.parentElement.clientWidth), dpr = window.devicePixelRatio || 1;
+      this.w = w; this.c.width = Math.round(w * dpr); this.c.height = Math.round(this.h * dpr); this.c.style.height = this.h + 'px';
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    frame() {
+      const ctx = this.ctx, p = 22, span = this.w - 2 * p, X = s => p + Math.max(0, Math.min(1, s / (TICKS * 5))) * span;
+      ctx.clearRect(0, 0, this.w, this.h);
+      ctx.fillStyle = css('--grid'); ctx.fillRect(X(200), 6, X(400) - X(200), 34);
+      ctx.globalAlpha = 0.6; ctx.strokeStyle = css('--a'); ctx.lineWidth = 1.5;
+      for (const lst of this.getArr()) for (const t of lst) { const x = X(t.born); ctx.beginPath(); ctx.moveTo(x, 12); ctx.lineTo(x, 34); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+      const xn = X(this.getNow()); ctx.strokeStyle = css('--ink'); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(xn, 4); ctx.lineTo(xn, 42); ctx.stroke();
+      ctx.fillStyle = css('--muted'); ctx.font = '11px Figtree, system-ui, sans-serif';
+      [[0, '0:00', 'left'], [200, '3:20', 'center'], [400, '6:40', 'center'], [600, '10:00', 'right']].forEach(([s, txt, al]) => { ctx.textAlign = al; ctx.fillText(txt, X(s), 56); });
+      ctx.textAlign = 'center'; ctx.fillText('each line is one ticket arriving', this.w / 2, 56);
+    }
+  }
+  (() => {
+    const $ = id => document.getElementById(id);
+    const cfg = { base: 6, widen: 3 }, RATE = 1.0, SEED = 7;
+    const shapes = { even: makeShaped(SEED, RATE, 'even'), random: makeShaped(SEED, RATE, 'random'), rush: makeShaped(SEED, RATE, 'rush') };
+    const results = {}; for (const k in shapes) results[k] = periodStats(shapes[k], cfg);
+    let cur = 'rush';
+    const lane = new Lane(shapes[cur], cfg);
+    const view = new LaneView($('w3-canvas'), lane, '--a', 200);
+    const strip = new Strip($('w3-strip'), () => shapes[cur], () => lane.now);
+    const w = { views: [strip, view], playing: false, last: 0, interval: 260 };
+    const playBtn = $('w3-play'), clock = $('w3-clock'), body = $('w3-stats');
+    const buttons = document.querySelectorAll('#w3 [data-shape]');
+    function render() {
+      const P = results[cur];
+      const rows = [
+        ['Tickets arrived', p => String(p.arr)],
+        ['Average wait to match', p => (p.n ? (p.w / p.n).toFixed(1) + 's' : '–')],
+        ['Expired unmatched', p => String(p.e)],
+      ];
+      body.innerHTML = '';
+      for (const [label, fmt] of rows) {
+        const tr = document.createElement('tr');
+        const th = document.createElement('td'); th.textContent = label; tr.appendChild(th);
+        P.forEach((p, i) => { const td = document.createElement('td'); td.textContent = fmt(p); if (i === 3) td.className = 'sel'; tr.appendChild(td); });
+        body.appendChild(tr);
+      }
+    }
+    w.step = instant => {
+      if (lane.done()) { setPlaying(false); return; }
+      view.apply(lane.step(), instant);
+      clock.textContent = `t = ${lane.now}s`;
+    };
+    function setPlaying(p) { w.playing = p; playBtn.textContent = p ? 'Pause' : 'Play'; }
+    function restart() {
+      setPlaying(false); lane.arrivals = shapes[cur]; lane.reset(); view.clear();
+      for (let i = 0; i < 24; i++) w.step(true);
+      buttons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.shape === cur)));
+      render();
+    }
+    buttons.forEach(b => { b.onclick = () => { cur = b.dataset.shape; restart(); }; });
+    playBtn.onclick = () => { if (lane.done()) restart(); setPlaying(!w.playing); };
+    $('w3-reset').onclick = restart;
+    w.resize = () => { strip.resize(); view.resize(); };
+    restart();
+    widgets.push(w);
+  })();
+
+  // ---------- synthetic: fields sampled together vs separately ----------
+  (() => {
+    const canvas = document.getElementById('w4-canvas'), ctx = canvas.getContext('2d'), chips = document.getElementById('w4-chips');
+    const N = 240, RANKS = 30, YMAX = 60000, H = 300;
+    const r = rng(9);
+    const mean = k => 3000 + k * 1500, sd = k => 500 + k * 90;
+    const pts = [];
+    for (let i = 0; i < N; i++) {
+      const rank = 1 + Math.floor(RANKS * Math.pow(r(), 1.3));
+      const g = Math.sqrt(-2 * Math.log(r() || 1e-9)) * Math.cos(2 * Math.PI * r());
+      const s = Math.max(500, mean(rank) + g * sd(rank));
+      pts.push({ rank, jx: (r() - 0.5) * 0.6, yJ: s, y: s });
+    }
+    const ys = pts.map(p => p.yJ);
+    for (let i = ys.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [ys[i], ys[j]] = [ys[j], ys[i]]; }
+    pts.forEach((p, i) => { p.yI = ys[i]; });
+    const impossible = (p, y) => Math.abs(y - mean(p.rank)) > 3.5 * sd(p.rank);
+    const badJ = pts.filter(p => impossible(p, p.yJ)).length, badI = pts.filter(p => impossible(p, p.yI)).length;
+    let mode = 'joint', W = 600;
+    const view = {
+      resize() {
+        const dpr = window.devicePixelRatio || 1; W = Math.max(280, canvas.parentElement.clientWidth);
+        canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); canvas.style.height = H + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      },
+      frame() {
+        const x0 = 76, x1 = W - 12, y0 = 12, y1 = H - 50;
+        const X = k => x0 + ((k - 0.5) / RANKS) * (x1 - x0), Y = v => y1 - (v / YMAX) * (y1 - y0);
+        const k = reduceMotion ? 1 : 0.08;
+        for (const p of pts) { const t = mode === 'joint' ? p.yJ : p.yI; p.y += (t - p.y) * k; }
+        const muted = css('--muted'), grid = css('--grid');
+        ctx.clearRect(0, 0, W, H);
+        ctx.font = '11px Figtree, system-ui, sans-serif';
+        // where real players live
+        ctx.fillStyle = css('--go'); ctx.globalAlpha = 0.12; ctx.beginPath();
+        for (let q = 1; q <= RANKS; q++) ctx.lineTo(X(q), Y(Math.min(YMAX, mean(q) + 3.5 * sd(q))));
+        for (let q = RANKS; q >= 1; q--) ctx.lineTo(X(q), Y(Math.max(0, mean(q) - 3.5 * sd(q))));
+        ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+        ctx.strokeStyle = grid; ctx.lineWidth = 1;
+        for (const v of [0, 20000, 40000, 60000]) { ctx.beginPath(); ctx.moveTo(x0, Y(v)); ctx.lineTo(x1, Y(v)); ctx.stroke(); }
+        ctx.fillStyle = muted; ctx.textAlign = 'right';
+        for (const v of [0, 20000, 40000, 60000]) ctx.fillText(String(v / 20), x0 - 6, Y(v) + 4);
+        ctx.textAlign = 'left'; ctx.fillText('rating ↑', x0 + 6, y0 + 10);
+        // marginals: identical in both modes
+        const yb = new Array(12).fill(0); for (const p of pts) yb[Math.min(11, Math.floor(p.yJ / 5000))]++;
+        const yMaxC = Math.max(...yb); ctx.fillStyle = muted; ctx.globalAlpha = 0.45;
+        yb.forEach((c, i) => { const len = (c / yMaxC) * 30; ctx.fillRect(40 - len, Y((i + 1) * 5000) + 1, len, Y(i * 5000) - Y((i + 1) * 5000) - 2); });
+        const xb = new Array(RANKS).fill(0); for (const p of pts) xb[p.rank - 1]++;
+        const xMaxC = Math.max(...xb);
+        xb.forEach((c, i) => { const len = (c / xMaxC) * 18; const xa = X(i + 1) - (x1 - x0) / RANKS / 2 + 1; ctx.fillRect(xa, y1 + 6, (x1 - x0) / RANKS - 2, len); });
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = muted; ctx.textAlign = 'left'; ctx.fillText('rank 1', x0, H - 6);
+        ctx.textAlign = 'right'; ctx.fillText('rank 30', x1, H - 6);
+        ctx.textAlign = 'center'; ctx.fillText('rank →', (x0 + x1) / 2, H - 6);
+        const ca = css('--a'), cb = css('--b'), card = css('--card');
+        for (const p of pts) {
+          ctx.beginPath(); ctx.arc(X(p.rank + p.jx), Y(p.y), 4, 0, Math.PI * 2);
+          ctx.fillStyle = impossible(p, p.y) ? cb : ca; ctx.fill();
+          ctx.lineWidth = 1; ctx.strokeStyle = card; ctx.stroke();
+        }
+      },
+    };
+    const buttons = document.querySelectorAll('#w4 [data-mode]');
+    function set(m) {
+      mode = m;
+      buttons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+      const bad = m === 'joint' ? badJ : badI;
+      chips.innerHTML = '';
+      const s = document.createElement('span');
+      s.className = 'chip ' + (bad ? 'bad' : 'good');
+      s.textContent = `${bad} of ${N} players couldn't exist`;
+      chips.appendChild(s);
+    }
+    buttons.forEach(b => { b.onclick = () => set(b.dataset.mode); });
+    view.resize(); set('joint');
+    widgets.push({ views: [view], playing: false, last: 0, interval: 1e9, step() {}, resize: () => view.resize() });
+  })();
+
+  // ---------- extras: rejection reasons + ticket journeys (one shared replay) ----------
+  (() => {
+    const $ = id => document.getElementById(id);
+    const arrivals = makeArrivals(3, 1.4).map(l => l.map(t => ({ ...t, ver: ((t.id * 2654435761) >>> 0) % 100 < 18 ? 'v1' : 'v2' })));
+    const cfg = { base: 5, widen: 3, minWait: 10 };
+    let allMode = false, run = null, selReason = null, jId = null;
+
+    function checks(a, b, now, allow) {
+      const out = [];
+      if (a.ver !== b.ver) out.push('app_version');
+      if (now - a.born < cfg.minWait || now - b.born < cfg.minWait) out.push('min_wait_time');
+      if (Math.abs(a.skill - b.skill) > Math.min(allow(a), allow(b))) out.push('skill_out_of_range');
+      return out;
+    }
+    function replay() {
+      let pool = []; const counts = {}, samples = {}, journeys = new Map(); let pairs = 0, ok = 0;
+      for (let k = 0; k < TICKS; k++) {
+        const now = k * 5;
+        const allow = t => cfg.base + cfg.widen * Math.floor(Math.max(0, now - t.born) / 5);
+        for (const t of arrivals[k]) { pool.push(t); journeys.set(t.id, { t, ev: [] }); }
+        pool = pool.filter(t => {
+          if (now - t.born >= EXPIRY) { journeys.get(t.id).ev.push({ now, kind: 'expired' }); return false; }
+          return true;
+        });
+        const per = new Map(pool.map(t => [t.id, { cand: 0, ok: 0, reasons: {} }]));
+        const props = [];
+        for (let i = 0; i < pool.length; i++) for (let j = i + 1; j < pool.length; j++) {
+          const a = pool[i], b = pool[j], gap = Math.abs(a.skill - b.skill);
+          pairs++; per.get(a.id).cand++; per.get(b.id).cand++;
+          const rs = checks(a, b, now, allow);
+          if (!rs.length) {
+            ok++; per.get(a.id).ok++; per.get(b.id).ok++;
+            props.push({ a, b, gap, score: 100 - gap + 0.05 * (2 * now - a.born - b.born) });
+            continue;
+          }
+          for (const r of (allMode ? rs : rs.slice(0, 1))) {
+            counts[r] = (counts[r] || 0) + 1;
+            const list = samples[r] || (samples[r] = []);
+            if (list.length < 4 && counts[r] % 37 === 1) list.push({ now, a, b, gap, allowed: Math.min(allow(a), allow(b)), aw: now - a.born, bw: now - b.born });
+          }
+          for (const t of [a, b]) { const R = per.get(t.id).reasons; R[rs[0]] = (R[rs[0]] || 0) + 1; }
+        }
+        props.sort((p, q) => q.score - p.score || p.a.id - q.a.id || p.b.id - q.b.id);
+        const matched = new Map();
+        for (const p of props) {
+          if (matched.has(p.a.id) || matched.has(p.b.id)) continue;
+          matched.set(p.a.id, { partner: p.b, gap: p.gap }); matched.set(p.b.id, { partner: p.a, gap: p.gap });
+        }
+        for (const t of pool) {
+          const m = matched.get(t.id), p = per.get(t.id);
+          journeys.get(t.id).ev.push(m ? { now, kind: 'matched', partner: m.partner, gap: m.gap } : { now, kind: 'waiting', cand: p.cand, ok: p.ok, reasons: p.reasons });
+        }
+        pool = pool.filter(t => !matched.has(t.id));
+      }
+      return { counts, samples, pairs, ok, journeys };
+    }
+    const fmt = n => n.toLocaleString('en-US');
+
+    function renderReasons() {
+      const chips = $('w5-chips'); chips.innerHTML = '';
+      [[`${fmt(run.pairs)} pairs checked`, ''], [`${fmt(run.ok)} accepted`, 'good']].forEach(([txt, cls]) => {
+        const s = document.createElement('span'); s.className = 'chip ' + cls; s.textContent = txt; chips.appendChild(s);
+      });
+      const entries = Object.entries(run.counts).sort((x, y) => y[1] - x[1]);
+      const total = entries.reduce((s, e) => s + e[1], 0), max = entries.length ? entries[0][1] : 1;
+      if (!selReason || !run.counts[selReason]) selReason = entries.length ? entries[0][0] : null;
+      const bars = $('w5-bars'); bars.innerHTML = '';
+      for (const [r, c] of entries) {
+        const b = document.createElement('button');
+        b.className = 'rbar'; b.setAttribute('aria-pressed', String(r === selReason));
+        b.innerHTML = `<code></code><span class="track"><span class="fill"></span></span><span class="num"></span>`;
+        b.querySelector('code').textContent = r;
+        b.querySelector('.fill').style.width = (100 * c / max).toFixed(1) + '%';
+        b.querySelector('.num').textContent = `${fmt(c)} · ${Math.round(100 * c / total)}%`;
+        b.onclick = () => { selReason = r; renderReasons(); };
+        bars.appendChild(b);
+      }
+      const body = $('w5-samples'); body.innerHTML = '';
+      for (const s of (selReason ? run.samples[selReason] : []) || []) {
+        const tr = document.createElement('tr');
+        [`t=${s.now}s`, `${s.a.skill} (${s.a.ver})`, `${s.b.skill} (${s.b.ver})`, s.gap, `±${s.allowed}`, `${s.aw}s`, `${s.bw}s`].forEach(v => {
+          const td = document.createElement('td'); td.textContent = v; tr.appendChild(td);
+        });
+        body.appendChild(tr);
+      }
+    }
+
+    const ids = () => [...run.journeys.keys()];
+    function longest() {
+      let best = null, len = -1;
+      for (const [id, j] of run.journeys) if (j.ev.length > len && j.ev.some(e => e.kind === 'matched')) { best = id; len = j.ev.length; }
+      return best ?? ids()[0];
+    }
+    function reasonText(R) {
+      return Object.entries(R).sort((x, y) => y[1] - x[1]).map(([r, c]) => `${c} ${r}`).join(', ');
+    }
+    function renderJourney() {
+      const j = run.journeys.get(jId); if (!j) return;
+      $('j-head').textContent = `Ticket #${j.t.id} · skill ${j.t.skill} · app ${j.t.ver} · joined at t=${Math.max(0, j.t.born)}s`;
+      const rows = $('j-rows'); rows.innerHTML = '';
+      for (const e of j.ev) {
+        const div = document.createElement('div');
+        let cls = '', txt = '';
+        if (e.kind === 'matched') { cls = 'matched'; txt = `Matched with #${e.partner.id} (skill ${e.partner.skill}), gap ${e.gap}`; }
+        else if (e.kind === 'expired') { cls = 'expired'; txt = 'Expired after 60s without a match'; }
+        else if (e.cand === 0) txt = 'Alone in the pool, nobody to pair with';
+        else if (e.ok > 0) { cls = 'outbid'; txt = `${e.ok} accepted, but a better pair won` + (Object.keys(e.reasons).length ? ` · rejected: ${reasonText(e.reasons)}` : ''); }
+        else txt = `${e.cand} candidates, all rejected: ${reasonText(e.reasons)}`;
+        div.className = 'jrow ' + cls;
+        div.innerHTML = '<span class="jt"></span><span></span>';
+        div.children[0].textContent = `t=${e.now}s · ${e.now - j.t.born}s`;
+        div.children[1].textContent = txt;
+        rows.appendChild(div);
+      }
+      const last = j.ev[j.ev.length - 1];
+      if (!last || last.kind === 'waiting') {
+        const div = document.createElement('div'); div.className = 'jrow';
+        div.innerHTML = '<span class="jt">end</span><span>Still waiting when the replay ended</span>';
+        rows.appendChild(div);
+      }
+    }
+    function refresh() {
+      run = replay();
+      renderReasons();
+      if (jId === null || !run.journeys.has(jId)) jId = longest();
+      renderJourney();
+    }
+    const step = d => { const all = ids(); const i = all.indexOf(jId); jId = all[(i + d + all.length) % all.length]; renderJourney(); };
+    $('j-prev').onclick = () => step(-1);
+    $('j-next').onclick = () => step(1);
+    $('j-long').onclick = () => { jId = longest(); renderJourney(); };
+    const modeBtns = document.querySelectorAll('#w5 [data-rmode]');
+    modeBtns.forEach(b => { b.onclick = () => {
+      allMode = b.dataset.rmode === 'all';
+      modeBtns.forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      refresh();
+    }; });
+    [['r-base', 'base'], ['r-widen', 'widen'], ['r-min', 'minWait']].forEach(([id, key]) => {
+      const input = $(id), out = $(id + '-o');
+      input.addEventListener('input', () => { out.textContent = input.value; cfg[key] = parseFloat(input.value); refresh(); });
+    });
+    refresh();
+  })();
+
+  // ---------- extras: script call counts ----------
+  (() => {
+    const input = document.getElementById('x-n'), out = document.getElementById('x-n-o'), body = document.getElementById('x-rows');
+    const DAY = 17280;
+    const short = v => v >= 1e9 ? (v / 1e9).toFixed(1) + 'B' : v >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : v >= 1e4 ? (v / 1e3).toFixed(0) + 'k' : v.toLocaleString('en-US');
+    function render() {
+      const n = parseInt(input.value, 10); out.textContent = n;
+      const rows = [
+        ['Go scorer, compiled in', 0, 0],
+        ['Script, one call per pair', n * (n - 1) / 2, n * (n - 1)],
+        ['Script, one call per tick', 1, n],
+      ];
+      const maxDay = Math.log10(500 * 499 / 2 * DAY + 1);
+      body.innerHTML = '';
+      for (const [label, calls, conv] of rows) {
+        const tr = document.createElement('tr');
+        const cells = [label, short(calls), short(conv), short(calls * DAY)];
+        cells.forEach(v => { const td = document.createElement('td'); td.textContent = v; tr.appendChild(td); });
+        const td = document.createElement('td'), bar = document.createElement('div');
+        bar.className = 'logbar'; bar.style.width = (100 * Math.log10(calls * DAY + 1) / maxDay).toFixed(1) + '%';
+        if (!calls) bar.style.opacity = '0';
+        td.appendChild(bar); tr.appendChild(td);
+        body.appendChild(tr);
+      }
+    }
+    input.addEventListener('input', render);
+    render();
+  })();
+
+  let rt;
+  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => widgets.forEach(w => w.resize()), 120); });
+  requestAnimationFrame(loop);
+})();
+</script>

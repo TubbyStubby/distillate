@@ -1,0 +1,68 @@
+{
+  "skill_name": "distillate",
+  "evals": [
+    {
+      "id": 1,
+      "name": "cache-eviction-concept-build",
+      "prompt": "dan is taking over cache eviction tuning from priya and his plan is to get the whole cache-sim docker setup running on his laptop and speed it up to 10x. thats way overkill imo, we just need to compare eviction policies on the access logs. can you turn these branch notes into a page that explains how to evaluate eviction policies offline and how to build that? notes are in evals/files/edge-cache-branch-notes.md",
+      "expected_output": "Concept + build (or course-correction) page: an in-process trace replay through each policy, byte vs request hit rate, warm-up/cold start, scan resistance, build steps with validation against production metrics, focus/leave-out that drops docker/nginx/k6/redis, optional extras tier (dashboard, warmup, sizing). No branch name, PR number or people's names.",
+      "files": [
+        "evals/files/edge-cache-branch-notes.md"
+      ],
+      "assertions": [
+        "page.html exists and passes check_page.py with no errors",
+        "No source provenance: no people, PR/ticket numbers or branch names from the source",
+        "Supports light and dark themes via tokens",
+        "Contains interactive controls (sliders or buttons) wired to toys",
+        "Has numbered build steps",
+        "Includes a validation step against production / real metrics",
+        "Leave-out guidance drops the docker / nginx / k6 setup",
+        "Distinguishes byte hit rate from request hit rate",
+        "Marks an optional / good-to-have tier",
+        "At least 4 toys"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "rate-limiter-concept-only",
+      "prompt": "support keeps getting tickets from customers saying they got 429s while being 'under the limit'. the support folks won't build anything, they just need to actually understand how our limiter works so they can explain it. can you make an explainer from this PR? evals/files/rate-limiter-pr.md",
+      "expected_output": "Concept-only page: token bucket mechanism with a stepper toy (capacity, refill, request costs), why a burst empties it, weighted endpoints, headers explained (remaining can go up, floored), a misreadings section mapped to the support complaints, check-yourself questions. No build steps, no reviewer names, PR number or incident id.",
+      "files": [
+        "evals/files/rate-limiter-pr.md"
+      ],
+      "assertions": [
+        "page.html exists and passes check_page.py with no errors",
+        "No source provenance: no people, PR/ticket numbers or branch names from the source",
+        "Supports light and dark themes via tokens",
+        "Contains interactive controls (sliders or buttons) wired to toys",
+        "No build / implementation steps section",
+        "Has a misreadings / common confusions section",
+        "Has check-yourself questions with hidden answers",
+        "Explains that Remaining can go up between requests (refill)",
+        "Explains weighted endpoint costs",
+        "At least 5 toys"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "search-replay-decision-brief",
+      "prompt": "leo needs to take a recommendation to his director on monday about whether to build an offline replay harness for search ranking changes. can you distill this thread into a decision brief page for the director? evals/files/search-ranking-replay-thread.md",
+      "expected_output": "Decision brief: answer first, the throughput problem (6 experiments/month vs 40 ideas), options (A/B only, offline replay as a filter, interleaving) with cost/risk, a toy showing the throughput or position-bias trade-off, effort tiers (basic harness, IPW, calibration as must-haves; diff viewer, slices, auto A/B config as good-to-haves), calibration as the go/no-go milestone, no code.",
+      "files": [
+        "evals/files/search-ranking-replay-thread.md"
+      ],
+      "assertions": [
+        "page.html exists and passes check_page.py with no errors",
+        "No source provenance: no people, PR/ticket numbers or branch names from the source",
+        "Supports light and dark themes via tokens",
+        "Contains interactive controls (sliders or buttons) wired to toys",
+        "Recommendation appears near the top (first 1,200 characters of text)",
+        "No code blocks",
+        "Compares options including interleaving and A/B only",
+        "Calibration against past A/B tests is a go/no-go milestone",
+        "Short: about 8 minutes of reading or less",
+        "1 to 3 toys"
+      ]
+    }
+  ]
+}
