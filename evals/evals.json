@@ -63,6 +63,48 @@
         "Short: about 8 minutes of reading or less",
         "1 to 3 toys"
       ]
+    },
+    {
+      "id": 4,
+      "name": "alerting-burn-rate-paper-theme",
+      "prompt": "the checkout on-call rotation is burnt out from pages and half of them have started snoozing everything. we're moving to burn-rate alerts. can you make a page that explains to the on-call folks how alert thresholds actually work and why burn rate is better? use the Paper theme. retro notes are in evals/files/alerting-thresholds-retro.md",
+      "expected_output": "Concept-only (or concept + build light) page in the Paper theme: why a single threshold trades false pages for missed slow burns (threshold-slider toy), error budget and burn rate explained with the real SLO numbers, the two-window rule and why the short window stops paging after recovery, low-traffic caveat, misreadings. No names or ticket ids.",
+      "files": [
+        "evals/files/alerting-thresholds-retro.md"
+      ],
+      "assertions": [
+        "page.html exists and passes check_page.py with no errors",
+        "No source provenance: no people, PR/ticket numbers or branch names from the source",
+        "Supports light and dark themes via tokens",
+        "Contains interactive controls (sliders or buttons) wired to toys",
+        "Uses the Paper theme (serif display font and Paper background token)",
+        "Has a threshold-style toy (a slider tied to a threshold or cut line)",
+        "Explains error budget and burn rate",
+        "Explains the short window stops paging after recovery",
+        "Mentions the low-traffic caveat",
+        "Stays within about 2,800 words"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "queue-tail-latency-concept-build",
+      "prompt": "we had a bad latency incident during the sale, p99 went to 9s while the average looked totally fine. the team is about to build queue-depth based autoscaling next sprint. can you turn the postmortem into a page that shows everyone why 95% utilisation is not fine when 80% is, and how to build the autoscaling properly? evals/files/sale-queue-postmortem.md",
+      "expected_output": "Concept + build page: load-vs-latency toy showing the non-linear blow-up near capacity, tail explorer showing mean/p50 hiding p99, Little's law, why CPU-based scaling missed it (diagram), build steps for queue-depth scaling with a validation step, headroom target, retries with jitter as a leave-out/focus item. No names or incident id.",
+      "files": [
+        "evals/files/sale-queue-postmortem.md"
+      ],
+      "assertions": [
+        "page.html exists and passes check_page.py with no errors",
+        "No source provenance: no people, PR/ticket numbers or branch names from the source",
+        "Supports light and dark themes via tokens",
+        "Contains interactive controls (sliders or buttons) wired to toys",
+        "Has numbered build steps",
+        "Includes a validation / load-test step before rollout",
+        "Shows latency vs utilisation (a utilisation control and p99)",
+        "Explains the average / p50 hiding the tail",
+        "Mentions Little's law",
+        "Includes at least one diagram (figure with SVG)"
+      ]
     }
   ]
 }

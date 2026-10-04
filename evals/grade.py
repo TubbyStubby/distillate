@@ -73,6 +73,28 @@ PER_EVAL = {
             ("1 to 3 toys", lambda s, t: 1 <= toys(s) <= 3),
         ],
     },
+    "alerting-burn-rate-paper-theme": {
+        "provenance": ["Farah", "Tomasz", "Ines", "OPS-1187"],
+        "checks": [
+            ("Uses the Paper theme (serif display font and Paper background token)", lambda s, t: re.search(r"Source\+?\s?Serif", s) is not None and "#f8f8f5" in s.lower()),
+            ("Has a threshold-style toy (a slider tied to a threshold or cut line)", lambda s, t: re.search(r'type="range"', s) is not None and re.search(r"threshold", t, re.I) is not None),
+            ("Explains error budget and burn rate", lambda s, t: re.search(r"error budget", t, re.I) is not None and re.search(r"burn rate", t, re.I) is not None),
+            ("Explains the short window stops paging after recovery", lambda s, t: re.search(r"(short|5.?m|5-minute|five-minute)[^.]{0,160}(recover|stop|clear|resolve)", t, re.I) is not None),
+            ("Mentions the low-traffic caveat", lambda s, t: re.search(r"low.traffic|quiet hours|few requests|minimum request", t, re.I) is not None),
+            ("Stays within about 2,800 words", lambda s, t: len(t.split()) <= 2800),
+        ],
+    },
+    "queue-tail-latency-concept-build": {
+        "provenance": ["Gabriel", "Sunita", "Joe", "INC-5530"],
+        "checks": [
+            ("Has numbered build steps", lambda s, t: bool(re.search(r"<ol\b", s))),
+            ("Includes a validation / load-test step before rollout", lambda s, t: re.search(r"(load test|validat|replay|check)[^.]{0,120}(tail|p99|queue|before)", t, re.I) is not None),
+            ("Shows latency vs utilisation (a utilisation control and p99)", lambda s, t: re.search(r"utili[sz]ation", t, re.I) is not None and re.search(r"p99", t, re.I) is not None and re.search(r'type="range"', s) is not None),
+            ("Explains the average / p50 hiding the tail", lambda s, t: re.search(r"(average|mean|p50|median)[^.]{0,160}(hide|hid|look(ed)? fine|green|tail)", t, re.I) is not None),
+            ("Mentions Little's law", lambda s, t: re.search(r"little.s law", t, re.I) is not None),
+            ("Includes at least one diagram (figure with SVG)", lambda s, t: re.search(r"<figure\b[\s\S]{0,400}?<svg\b", s, re.I) is not None or re.search(r'class="flow"', s) is not None),
+        ],
+    },
 }
 
 
