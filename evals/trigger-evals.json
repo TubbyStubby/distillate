@@ -1,0 +1,82 @@
+[
+  {
+    "query": "my new teammate is picking up our payment retry service next week. can you turn the design doc in docs/retries.md into something interactive that explains how the retry + dead-letter flow works? they learn way better by poking at stuff than reading",
+    "should_trigger": true
+  },
+  {
+    "query": "we just merged a huge PR that replaced all our cron jobs with a temporal workflow engine. write up a page for the rest of eng explaining the concept and what to build on top of it, skip all the PR history and who argued about what",
+    "should_trigger": true
+  },
+  {
+    "query": "support keeps misunderstanding how proration works when customers switch plans mid-cycle. here's the billing code in src/billing/proration.ts, make them an explainer they can actually play with",
+    "should_trigger": true
+  },
+  {
+    "query": "can you distill this 200 message slack thread (pasted below) about our feature flag rollout strategy into a page for my director? she has to decide by friday whether we fund the percentage-rollout service",
+    "should_trigger": true
+  },
+  {
+    "query": "junior on my team started standing up a whole kafka + flink cluster locally just to test our dedup logic. thats not needed at all. can you make something that shows him the simpler way to test it without making him feel dumb",
+    "should_trigger": true
+  },
+  {
+    "query": "make an explorable explanation, samwho.dev style, of how our consistent hashing ring rebalances when nodes join or leave. code is in internal/ring/ring.go",
+    "should_trigger": true
+  },
+  {
+    "query": "turn the branch feature/vector-search-v2 into a guide for whoever owns it next: what it does, what actually matters, what to ignore. theres like 80 commits of experiments in there",
+    "should_trigger": true
+  },
+  {
+    "query": "I need a build sheet from rfcs/0042-outbox-pattern.md. the team already understands the outbox pattern, they just need concrete steps and how they'll know each step is done",
+    "should_trigger": true
+  },
+  {
+    "query": "write an onboarding primer for new folks on the search team explaining how the ranking pipeline works end to end, with a few little interactive demos. my notes are in notes/ranking.md",
+    "should_trigger": true
+  },
+  {
+    "query": "pms keep asking how our autoscaler decides when to add pods. they dont need code, just a solid mental model they can reason with. can you make them a page from the scaling README, use our brand colours #0B5FFF and #FF6B35",
+    "should_trigger": true
+  },
+  {
+    "query": "review PR #4410 (the temporal workflow migration) and tell me if there are any bugs or race conditions before i approve it",
+    "should_trigger": false
+  },
+  {
+    "query": "write a README for the retries package documenting the public API, config options and an example of wrapping a client",
+    "should_trigger": false
+  },
+  {
+    "query": "summarize this slack thread about feature flags into 5 bullet points so i can catch up quickly",
+    "should_trigger": false
+  },
+  {
+    "query": "set up a grafana dashboard json for checkout latency p50/p99 and error rate, we use prometheus with the standard http_request_duration_seconds histogram",
+    "should_trigger": false
+  },
+  {
+    "query": "make me a slide deck for my 20 min meetup talk on consistent hashing, about 12 slides with speaker notes",
+    "should_trigger": false
+  },
+  {
+    "query": "quick q: how does consistent hashing avoid remapping every key when a node is added?",
+    "should_trigger": false
+  },
+  {
+    "query": "build an interactive react component for our customer dashboard that lets users simulate loan repayments with a slider for term and rate",
+    "should_trigger": false
+  },
+  {
+    "query": "write the postmortem doc for yesterday's checkout outage using our standard template and the incident timeline in incident-5530.md",
+    "should_trigger": false
+  },
+  {
+    "query": "generate a d3 line chart of monthly signups from data/signups.csv, split by acquisition channel",
+    "should_trigger": false
+  },
+  {
+    "query": "turn rfcs/0042-outbox-pattern.md into a jira epic with one ticket per implementation step and rough estimates",
+    "should_trigger": false
+  }
+]
