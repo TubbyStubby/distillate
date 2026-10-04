@@ -1,0 +1,22 @@
+{
+  "name": "distillate",
+  "displayName": "Distillate",
+  "version": "0.1.0",
+  "description": "Distill a branch, PR, design doc or thread into one friendly, interactive explainer page: priority tiers, playable toy models and, by flavour, how to build it.",
+  "author": {
+    "name": "TubbyStubby"
+  },
+  "homepage": "https://github.com/TubbyStubby/distillate",
+  "repository": "https://github.com/TubbyStubby/distillate",
+  "license": "MIT",
+  "keywords": [
+    "explainer",
+    "onboarding",
+    "interactive",
+    "teaching",
+    "skill"
+  ],
+  "skills": [
+    "./distillate/"
+  ]
+}

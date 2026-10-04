@@ -9,9 +9,26 @@ friendly, interactive explainer page, organised in priority tiers with small toy
 
 Flavours: concept + build (default), concept only, build sheet, decision brief, course correction.
 
-Install for Claude Code by linking the skill folder into your skills directory:
+## Install
 
-    ln -s ~/Projects/distillate/distillate ~/.claude/skills/distillate
+**Claude Code (plugin):**
+
+    /plugin marketplace add TubbyStubby/distillate
+    /plugin install distillate@distillate
+
+Or from a terminal: `claude plugin marketplace add TubbyStubby/distillate`, then
+`claude plugin install distillate@distillate`.
+
+**Claude Code (manual):** copy or symlink the `distillate/` folder to
+`~/.claude/skills/distillate/` (all projects) or `<repo>/.claude/skills/distillate/`
+(one project).
+
+## Use
+
+Ask for an explainer, guide, primer, brief or course correction from a source, or
+call it directly: `/distillate:distillate` after a plugin install, or `/distillate` after a
+manual install. Name a flavour or a theme to steer it, for
+example "concept only, Paper theme".
 
 ## Licence
 

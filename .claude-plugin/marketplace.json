@@ -1,0 +1,14 @@
+{
+  "name": "distillate",
+  "owner": {
+    "name": "TubbyStubby"
+  },
+  "description": "Distillate: interactive explainer pages distilled from messy sources.",
+  "plugins": [
+    {
+      "name": "distillate",
+      "source": "./",
+      "description": "Distill a branch, PR, design doc or thread into one friendly, interactive explainer page: priority tiers, playable toy models and, by flavour, how to build it."
+    }
+  ]
+}
