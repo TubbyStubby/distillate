@@ -154,6 +154,12 @@ pre .k { color: var(--go); font-weight: 500; }
 .three p { font-size: 15px; }
 .three .tag { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
 
+/* headline stat tiles (decision briefs) */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tile .num { font-family: var(--font-display); font-weight: 800; font-size: 1.8rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile .lab { font-size: 14px; color: var(--muted); }
+
 /* optional tier ladder */
 .ladder { display: flex; flex-direction: column; gap: 10px; }
 .ladder > div { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pre-publish checks for a Distillate page.
 
-Usage: python check_page.py page.html
+Usage: python check_page.py page.html [--flavour concept-build|concept-only|build-sheet|brief|course-correction]
 
 Errors (exit 1): missing <title>, a script that fails `node --check`.
 Warnings: leftover template placeholders, missing theme blocks, em dashes in the
@@ -20,6 +20,14 @@ ALLOWED_HOSTS = (
     "fonts.googleapis.com", "fonts.gstatic.com", "cdnjs.cloudflare.com",
     "cdn.jsdelivr.net", "unpkg.com",
 )
+# (max words, max sections) before a "too long" warning, per flavour
+BUDGETS = {
+    "concept-build": (3400, 18),
+    "course-correction": (3400, 18),
+    "concept-only": (2600, 11),
+    "build-sheet": (2200, 12),
+    "brief": (1800, 9),
+}
 PLACEHOLDERS = (
     "PAGE NAME", "DOMAIN · GUIDE TYPE", "THE ONE QUESTION", "ONE SENTENCE",
     "THE IDEA, STATED PLAINLY", "DESCRIBE WHAT THE CANVAS SHOWS", "HINT:",
@@ -37,10 +45,17 @@ def visible_text(src: str) -> str:
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
+    args = sys.argv[1:]
+    flavour = "concept-build"
+    if "--flavour" in args:
+        i = args.index("--flavour")
+        flavour = args[i + 1] if i + 1 < len(args) else ""
+        args = args[:i] + args[i + 2:]
+    if len(args) != 1 or flavour not in BUDGETS:
         print(__doc__)
         return 2
-    path = sys.argv[1]
+    path = args[0]
+    max_words, max_sections = BUDGETS[flavour]
     src = open(path, encoding="utf-8").read()
     errors, warnings = [], []
 
@@ -94,10 +109,14 @@ def main() -> int:
 
     words = len(text.split())
     minutes = max(1, round(words / 230))
+    if words > max_words:
+        warnings.append(f"~{words} words is long for a {flavour} page (budget ~{max_words}); merge sections that make the same point")
     heads = [re.sub(r"<[^>]+>", "", h).strip() for h in re.findall(r"<h2[^>]*>(.*?)</h2>", src, re.S)]
     toys = len(re.findall(r'class="toy[" ]', src))
+    if len(heads) > max_sections:
+        warnings.append(f"{len(heads)} sections is a lot for a {flavour} page (budget ~{max_sections}); merge sections")
 
-    print(f"Page: {path}")
+    print(f"Page: {path} [{flavour}]")
     print(f"  ~{words} words, about {minutes} min to read, {len(heads)} sections, {toys} toy blocks")
     for h in heads:
         print(f"   - {html.unescape(h)}")

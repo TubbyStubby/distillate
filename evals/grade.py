@@ -59,7 +59,7 @@ PER_EVAL = {
             ("Has check-yourself questions with hidden answers", lambda s, t: re.search(r"<details\b", s, re.I) is not None),
             ("Explains that Remaining can go up between requests (refill)", lambda s, t: re.search(r"remaining[^.]{0,120}(go(es)? up|increase|rise|climb|refill)", t, re.I) is not None),
             ("Explains weighted endpoint costs", lambda s, t: re.search(r"export", t, re.I) is not None and re.search(r"20 tokens", t, re.I) is not None),
-            ("At least 5 toys", lambda s, t: toys(s) >= 5),
+            ("Within the concept-only length budget (<= 2,600 words, <= 11 sections)", lambda s, t: len(t.split()) <= 2600 and len(re.findall(r"<h2\b", s)) <= 11),
         ],
     },
     "search-replay-decision-brief": {

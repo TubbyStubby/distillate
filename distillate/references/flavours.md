@@ -16,7 +16,7 @@ Contents:
 
 **Reader:** someone who is going to build the thing, usually a teammate who is new to this part of the system.
 **Goal:** they understand the mechanism well enough to build the right thing, and they know what to leave out.
-**Length:** 15–20 minutes. **Toys:** 5–8.
+**Length:** 12–18 minutes, about 12–16 sections across all tiers. **Toys:** 5–8.
 
 Structure:
 
@@ -45,20 +45,22 @@ The first concept section of tier 1 should make the core mechanism tangible, wit
 
 **Reader:** someone who has to understand and reason about the thing without building it: a new teammate, a PM, a reviewer, support, a neighbouring team.
 **Goal:** a correct mental model they can use to predict behaviour and spot nonsense.
-**Length:** 15–20 minutes. **Toys:** 7–10.
+**Length:** 10–15 minutes, about 8–11 sections. **Toys:** 4–6, usually one centrepiece workbench plus a few satellites.
 
 Swap out "How to build it" and "Where to spend your time", and use that space to go deeper on each concept:
 
 ```
 Header
 Tier 1 (core)
-  Concept sections (3–5), each: setup → toy → takeaway
-  What changes what: a sensitivity toy with one slider per lever and its visible effect,
+  The mechanism: one section with the centrepiece workbench. Its scenario presets come from the
+    situations the reader actually meets (the complaints, tickets or reports they field)
+  Concept sections (2–3) for what the centrepiece doesn't show on its own, each: setup → toy → takeaway
+  What changes what: sliders on the centrepiece or one small sensitivity toy,
     followed by a short table of "turn this up → expect that"
   Common misreadings: 3–5 items, each "It's tempting to think X. Actually Y."
-    with a pointer to the toy that shows it ("Try: ...")
+    with a pointer to the preset or toy that shows it ("Try: ...")
   Edge cases and limits
-Tier 2 (extension)
+Tier 2 (extension), only if the source really has a second layer
   Same pattern, lighter
 Closing
   The mental model in one picture or 5–7 sentences
@@ -67,6 +69,8 @@ Footer
 ```
 
 Code appears only when the code *is* the concept (an interface, a formula), at most one short snippet. Swap "you'll build" phrasing for "you'll see" and "this means".
+
+If the reader has to *act* on the understanding (answer customers, triage reports), fold that into the misreadings section ("what's happening" plus "what to say") instead of adding separate sections for it. Depth here means a sharper model, not more sections.
 
 ---
 
@@ -99,6 +103,7 @@ Steps carry more detail here than in the default flavour, but stay skimmable. Pu
 
 ```
 Header: title, then the question and the recommendation in the lede (answer first)
+Headline numbers: 2–4 figures the decision turns on (cost, time saved, risk), shown as a small row of stat tiles, each with a one-line label
 What it is: two short paragraphs + one toy or diagram showing the core trade-off
 Options: 2–4 option cards, each with what you get, what it costs, and the main risk
 Recommendation and why: one short section
@@ -116,7 +121,7 @@ No code. Effort in rough units the team uses (days, sprints). Name the trade-off
 
 **Reader:** someone already building, in a direction that costs far more than it needs to or answers the wrong question.
 **Goal:** they switch direction without feeling foolish, and keep whatever they built that's still useful.
-**Length:** 15–20 minutes. **Toys:** 5–8.
+**Length:** 12–18 minutes. **Toys:** 5–8.
 
 ```
 Header: lede frames the question the work is meant to answer, not the mistake

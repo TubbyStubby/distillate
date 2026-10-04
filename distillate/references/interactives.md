@@ -25,9 +25,19 @@ Use a static diagram when the point is structure that doesn't change (what talks
 
 Budget per flavour is in `flavours.md`. Two toys proving the same claim is one too many.
 
+**One centrepiece beats many small toys.** When a single mechanism sits under most of the page (a bucket, a queue, a cache, a loop), build one richer toy for it early on and make it the page's workbench. Later sections then point back to it ("press *Two jobs, one key* above") instead of adding a new toy each. That keeps the page shorter, and the reader gets to know one model well instead of skimming seven. Save separate toys for claims the centrepiece can't show: a different mechanism, a comparison, a distribution.
+
 ## 2. Pattern catalogue
 
 Each pattern lists what it proves and its minimum controls.
+
+**Centrepiece workbench.** One live model of the core mechanism, with:
+- a clear picture of its state (a bucket's fill level, a pool, a cache), with the number and the reader-facing readout next to it (the header value a customer would see);
+- direct controls the reader can poke (send this request, add this item), plus a play speed;
+- **named scenario presets** taken from the situations the reader actually meets (the support ticket, the incident, the confusing report). Each preset plays out on its own and ends with a short "Result:" note saying what happened and why;
+- **output in the reader's terms**: a log or table of what the outside world saw (status codes, headers, which request was refused, what the user waited), and a small chart over time if it helps.
+
+This proves "here is the whole mechanism, and here is why each familiar situation turns out the way it does". It's usually the best toy on the page, so put real effort into it. Verify each preset's result note headless (section 4).
 
 **Stepper.** One loop, stepped one tick at a time. Proves "the system is a loop, and here's what one iteration does". Controls: Step (primary), Play/Pause, Reset, maybe a "show X" checkbox. Shows counter chips for what happened this tick ("+2 arrived · 1 matched · 0 expired · 5 waiting").
 
@@ -45,11 +55,32 @@ Each pattern lists what it proves and its minimum controls.
 
 **Cost counter.** A size slider and a table of exact counts per approach (calls, conversions, per-day totals) with a log-scale bar. Proves "this approach scales as n², that one as n". Use exact arithmetic, never invented timings.
 
-New patterns are welcome when a claim needs one. Keep the same control vocabulary (primary button, Play/Pause, Reset, segmented controls, labelled sliders with a live value).
+**Threshold slider.** Two overlapping distributions (good vs bad, normal vs incident) with a draggable cut line. Counts of false positives and false negatives update live, plus precision and recall or alert volume. Proves "every threshold trades one kind of error for the other".
+
+**Load vs latency.** A utilisation slider driving a simple queue. It shows the queue length and p50/p99 wait, with a curve that bends sharply near 100%. Proves "latency explodes near capacity, so headroom matters".
+
+**Tail explorer.** A histogram of sampled latencies (or sizes, or costs) with mean, p50, p95 and p99 markers. A slider sets the share of rare slow events. Proves "the average hides the tail, and the tail is what users feel".
+
+**Interleaving explorer.** Two actors, each with a short list of steps. The reader picks which actor moves next (or presses Shuffle) and sees the shared state change, with a highlight when an ordering produces the bug. Proves "this only breaks in one ordering", for races, lost updates and double-spends.
+
+**State machine explorer.** Event buttons and a state diagram with the current state highlighted. Illegal events are disabled, with a short reason on hover, and there's a history of transitions. Proves "these are the only legal paths, and here's how you get stuck".
+
+**Blast radius.** A small dependency graph. Clicking a node fails it, and the failure spreads to everything that depends on it, with counts of affected services or users. A toggle can add a fallback or cache to show what it saves. Proves "what goes down when X goes down".
+
+**What-if calculator.** A few labelled inputs, the formula written out in words, and the outputs updating live, with the user's real numbers as defaults. Good in decision briefs for capacity, cost and throughput. Proves "here's how the numbers combine, so try your own".
+
+### Choosing, tweaking or inventing a toy
+
+Keep this simple:
+1. **Write the claim** the toy must prove, in one sentence.
+2. **Use a catalogue pattern** whose "Proves" line matches the claim's shape.
+3. **Tweak before inventing.** If a pattern is close, adapt it: add scenario presets, change the readout to the reader's terms, swap what the axes show, combine two patterns into one centrepiece. Most good toys are a tweak.
+4. **Invent only when nothing fits.** A new toy must still follow every rule in section 3, use the same control vocabulary (primary button, Play/Pause, Reset, segmented controls, labelled sliders with a live value), and be describable in one "Proves …" line. If you can't write that line, it isn't a toy. Use a diagram or a sentence.
+5. **Say so in the reply.** When you invent a toy, name it and give its "Proves" line, so it can be added to this catalogue if it works well.
 
 ## 3. Rules every toy follows
 
-- **One claim per toy.** Write the claim down before building. The takeaway paragraph after the toy states it.
+- **One claim per toy.** Write the claim down before building. The takeaway paragraph after the toy states it. The centrepiece workbench is the exception: one claim per scenario preset.
 - **Deterministic.** A seeded RNG, so the same seed and settings always draw the same picture and the prose can describe what the reader will see. Offer "New input" to change the seed.
 - **Complete at rest.** On load, pre-run some steps instantly so the toy already shows a realistic state. An empty canvas teaches nothing, and the first frame is what skimmers see.
 - **Fair comparisons.** Variants share the same input. Changing a setting replays from the start.
@@ -58,7 +89,9 @@ New patterns are welcome when a claim needs one. Keep the same control vocabular
 - **A hint.** One small line saying what to try ("Set a high minimum wait and flip the toggle").
 - **Accessible.** An `aria-label` on each canvas or SVG, plus live text readouts (chips or a table with `aria-live="polite"`) carrying the same information.
 - **Themed.** Colours come from CSS tokens, and canvas code reads them every frame, so a theme switch just works. Respect `prefers-reduced-motion` by snapping instead of easing.
-- **Few controls.** One primary action, Play/Pause and Reset, and at most three sliders per toy.
+- **Few controls.** One primary action, Play/Pause and Reset, and at most three sliders per toy. A centrepiece can carry more, but group them: state, actions, scenarios, speed.
+- **Playback a person can follow.** Default to a pace where the reader can see what one step did: roughly one step per 0.6–1.2 s for a stepper, and a run of under about 30 s for a full scenario. Offer a speed control (1×, 4×, 10×) and Step for anyone who wants it faster or slower. When the data is fine-grained (thousands of events), don't animate every event. Batch them into visible steps (one per tick, minute or request burst), and show a per-step summary chip, so speed never hides what happened.
+- **Speak the reader's language.** Show results the way the reader meets them in real life (the response a customer got, the page a user saw, the bill line), not only as internal state.
 
 ## 4. Verifying a toy's claims headless
 
@@ -82,7 +115,7 @@ The template (`assets/template.html`) provides:
 - `css(name)`: reads a CSS custom property (use it for canvas colours each frame).
 - `fitCanvas(canvas, height)`: sizes a canvas for its container and the device pixel ratio, returning `{ctx, w, h}`.
 - `widgets` and the animation loop: push `{ views: [...], playing, last, interval, step(instant), resize() }`. Each view has `frame(ms)`. The loop calls `step` on an interval while `playing`, and calls `frame` on every view each animation frame.
-- Component CSS: `.toy`, `.bar`, `.btn`, `.btn.primary`, `.seg`, `.chip`, `.slider`, `.stats` (with `.win`, `.sel`), `.steps`, `.two`, `.three`, `.pull`, `.ladder`, `.reasons`/`.rbar`, `.journey`/`.jrow`, `.logbar`, and `.reveal` / `.flow` diagram styles.
+- Component CSS: `.toy`, `.bar`, `.btn`, `.btn.primary`, `.seg`, `.chip`, `.slider`, `.stats` (with `.win`, `.sel`), `.steps`, `.two`, `.three`, `.tiles`/`.tile`, `.pull`, `.ladder`, `.reasons`/`.rbar`, `.journey`/`.jrow`, `.logbar`, and `.reveal` / `.flow` diagram styles.
 
 Patterns that worked well in practice:
 - One shared model class (for example a `Lane` with `reset()`, `step()`, `stats()`) reused across several toys on the page, so all the toys agree with each other.
