@@ -1,0 +1,12 @@
+generate_review.py and viewer.html are copied from the eval viewer in
+Anthropic's skill-creator skill and are licensed under the Apache License 2.0
+(see LICENSE.txt in this directory).
+
+Changes made in this copy:
+- generate_review.py: render .html outputs live in an iframe instead of as
+  source text.
+- generate_review.py: escape "</" in the embedded JSON so output files that
+  contain </script> cannot close the viewer's script tag.
+- generate_review.py: also look for eval_metadata.json two directories above a
+  run (eval-N/<config>/run-N/ layout).
+- viewer.html: taller iframe for rendered pages (85vh).

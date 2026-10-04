@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Modified copy of the skill-creator eval viewer (Apache License 2.0).
+# See LICENSE.txt and NOTICE in this directory for the licence and the list of changes.
 """Generate and serve a review page for eval results.
 
 Reads the workspace directory, discovers runs (directories with outputs/),

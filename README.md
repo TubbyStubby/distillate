@@ -12,3 +12,7 @@ Flavours: concept + build (default), concept only, build sheet, decision brief, 
 Install for Claude Code by linking the skill folder into your skills directory:
 
     ln -s ~/Projects/distillate/distillate ~/.claude/skills/distillate
+
+## Licence
+
+MIT (see `LICENSE`), except `evals/viewer/`, which is a modified copy of the eval viewer from Anthropic's skill-creator skill and stays under the Apache License 2.0 (see `evals/viewer/LICENSE.txt` and `evals/viewer/NOTICE`).
